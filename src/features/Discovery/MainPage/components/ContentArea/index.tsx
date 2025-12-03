@@ -216,9 +216,9 @@ const ContentArea: React.FC<ContentAreaProps> = (props) => {
     onRefresh,
     getItemHeight,
   } = useContentLogic(props);
-  
+
   console.log('[ContentArea] 渲染, activeTab:', props.activeTab, 'feeds数量:', feeds.length);
-  
+
   return (
     <WaterfallList
       key={props.activeTab} // 强制在Tab切换时重新渲染

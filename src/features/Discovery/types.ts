@@ -30,8 +30,9 @@ export interface DiscoveryState {
 
 /**
  * Tab类型
+ * 注：BFF API 使用 'nearby'，前端UI显示为"同城"
  */
-export type TabType = 'follow' | 'hot' | 'local';
+export type TabType = 'follow' | 'hot' | 'nearby';
 
 // ==================== 动态实体类型 ====================
 

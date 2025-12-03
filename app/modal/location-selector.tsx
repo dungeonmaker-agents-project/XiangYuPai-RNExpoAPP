@@ -1,15 +1,14 @@
 /**
  * LocationSelectorModal - 地点选择器Modal
- * 
+ *
  * 功能：
- * - 地图显示
  * - 搜索地点
- * - 附近地点列表
+ * - 获取附近地点
+ * - 筛选地点（附近、热门、最近）
  * - 选择地点
  */
-
-import * as Location from 'expo-location';
-import React, { useEffect, useState } from 'react';
+import * as ExpoLocation from 'expo-location';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -23,6 +22,10 @@ import {
     View
 } from 'react-native';
 
+// 导入API
+import { publishApi } from '@/services/api';
+import type { PublishLocation } from '@/services/api';
+
 // 颜色常量
 const COLORS = {
   PRIMARY: '#8A2BE2',
@@ -32,17 +35,16 @@ const COLORS = {
   TEXT_SECONDARY: '#666666',
   TEXT_PLACEHOLDER: '#999999',
   BORDER: '#E5E5E5',
-  MAP_BACKGROUND: '#E8E8E8',
 } as const;
 
-// 位置类型
+// 位置类型 - 兼容接口
 export interface LocationData {
   id: string;
   name: string;
   address: string;
   latitude: number;
   longitude: number;
-  distance?: number; // 距离（米）
+  distance?: number;
 }
 
 interface LocationSelectorModalProps {
@@ -51,49 +53,7 @@ interface LocationSelectorModalProps {
   onClose: () => void;
 }
 
-// 模拟附近地点数据
-const MOCK_LOCATIONS: LocationData[] = [
-  {
-    id: '1',
-    name: '深圳市南山区',
-    address: '广东省深圳市南山区',
-    latitude: 22.5329,
-    longitude: 113.9344,
-    distance: 100,
-  },
-  {
-    id: '2',
-    name: '科技园',
-    address: '深圳市南山区科技园',
-    latitude: 22.5428,
-    longitude: 113.9501,
-    distance: 500,
-  },
-  {
-    id: '3',
-    name: '深圳湾公园',
-    address: '深圳市南山区滨海大道',
-    latitude: 22.5186,
-    longitude: 113.9397,
-    distance: 1200,
-  },
-  {
-    id: '4',
-    name: '海岸城',
-    address: '深圳市南山区文心五路',
-    latitude: 22.5189,
-    longitude: 113.9324,
-    distance: 1500,
-  },
-  {
-    id: '5',
-    name: '欢乐海岸',
-    address: '深圳市南山区白石路东',
-    latitude: 22.5234,
-    longitude: 113.9456,
-    distance: 2000,
-  },
-];
+type FilterType = 'nearby' | 'hot' | 'recent';
 
 export default function LocationSelectorModal({
   visible,
@@ -101,102 +61,146 @@ export default function LocationSelectorModal({
   onClose,
 }: LocationSelectorModalProps) {
   const [searchText, setSearchText] = useState('');
-  const [locations, setLocations] = useState<LocationData[]>(MOCK_LOCATIONS);
+  const [locations, setLocations] = useState<LocationData[]>([]);
   const [loading, setLoading] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState<LocationData | null>(null);
-  const [locationPermission, setLocationPermission] = useState<boolean>(false);
-
-  // 请求位置权限
-  useEffect(() => {
-    if (visible) {
-      requestLocationPermission();
-    }
-  }, [visible]);
-
-  const requestLocationPermission = async () => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setLocationPermission(status === 'granted');
-      
-      if (status === 'granted') {
-        getCurrentLocation();
-      }
-    } catch (error) {
-      console.error('请求位置权限失败:', error);
-    }
-  };
+  const [activeFilter, setActiveFilter] = useState<FilterType>('nearby');
+  const [recentLocations, setRecentLocations] = useState<LocationData[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   // 获取当前位置
-  const getCurrentLocation = async () => {
-    setLoading(true);
+  const getCurrentLocation = useCallback(async () => {
     try {
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+      const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要位置权限才能获取附近地点');
+        return null;
+      }
+
+      const location = await ExpoLocation.getCurrentPositionAsync({
+        accuracy: ExpoLocation.Accuracy.Balanced,
       });
-      
-      // TODO: 调用逆地理编码API获取地址信息
-      const current: LocationData = {
-        id: 'current',
-        name: '当前位置',
-        address: '正在获取地址...',
+
+      const coords = {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
       };
-      
-      setCurrentLocation(current);
-      
-      // TODO: 调用附近地点API
-      // 这里使用模拟数据
-      setLocations(MOCK_LOCATIONS);
+      setCurrentLocation(coords);
+      return coords;
     } catch (error) {
       console.error('获取位置失败:', error);
-      Alert.alert('提示', '获取位置失败，请检查定位权限');
+      return null;
+    }
+  }, []);
+
+  // 加载附近地点
+  const loadNearbyLocations = useCallback(async () => {
+    setLoading(true);
+    try {
+      let coords = currentLocation;
+      if (!coords) {
+        coords = await getCurrentLocation();
+      }
+
+      if (coords) {
+        const nearbyLocations = await publishApi.getNearbyLocations(
+          coords.latitude,
+          coords.longitude,
+          5000
+        );
+        setLocations(nearbyLocations.map(loc => ({
+          id: loc.id,
+          name: loc.name,
+          address: loc.address,
+          latitude: loc.latitude,
+          longitude: loc.longitude,
+          distance: loc.distance,
+        })));
+      }
+    } catch (error) {
+      console.error('加载附近地点失败:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLocation, getCurrentLocation]);
+
+  // 初始化
+  useEffect(() => {
+    if (visible) {
+      if (activeFilter === 'nearby') {
+        loadNearbyLocations();
+      } else if (activeFilter === 'recent') {
+        setLocations(recentLocations);
+      }
+    }
+  }, [visible, activeFilter, loadNearbyLocations, recentLocations]);
+
+  // 切换筛选器
+  const handleFilterChange = useCallback((filter: FilterType) => {
+    setActiveFilter(filter);
+    setSearchText('');
+
+    if (filter === 'nearby') {
+      loadNearbyLocations();
+    } else if (filter === 'recent') {
+      setLocations(recentLocations);
+    }
+  }, [loadNearbyLocations, recentLocations]);
 
   // 搜索地点
-  const handleSearch = async (text: string) => {
+  const handleSearch = useCallback(async (text: string) => {
     setSearchText(text);
-    
+
     if (!text.trim()) {
-      setLocations(MOCK_LOCATIONS);
+      if (activeFilter === 'nearby') {
+        loadNearbyLocations();
+      } else if (activeFilter === 'recent') {
+        setLocations(recentLocations);
+      }
       return;
     }
 
     setLoading(true);
     try {
-      // TODO: 调用地点搜索API
-      await new Promise(resolve => setTimeout(resolve, 300));
-      const filtered = MOCK_LOCATIONS.filter(loc => 
-        loc.name.toLowerCase().includes(text.toLowerCase()) ||
-        loc.address.toLowerCase().includes(text.toLowerCase())
+      const searchResults = await publishApi.searchLocations(
+        text,
+        currentLocation?.latitude,
+        currentLocation?.longitude
       );
-      setLocations(filtered);
+      setLocations(searchResults.map(loc => ({
+        id: loc.id,
+        name: loc.name,
+        address: loc.address,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+        distance: loc.distance,
+      })));
     } catch (error) {
       console.error('搜索地点失败:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeFilter, currentLocation, loadNearbyLocations, recentLocations]);
 
   // 选择地点
-  const handleSelectLocation = (location: LocationData) => {
+  const handleSelectLocation = useCallback((location: LocationData) => {
+    // 添加到最近使用
+    const updatedRecent = [location, ...recentLocations.filter(c => c.id !== location.id)].slice(0, 10);
+    setRecentLocations(updatedRecent);
+
     onSelect(location);
-  };
+  }, [recentLocations, onSelect]);
 
   // 格式化距离
   const formatDistance = (distance?: number) => {
     if (!distance) return '';
     if (distance < 1000) {
-      return `${distance}m`;
+      return `${Math.round(distance)}m`;
     }
     return `${(distance / 1000).toFixed(1)}km`;
   };
 
   // 渲染地点项
-  const renderLocationItem = ({ item }: { item: LocationData }) => {
+  const renderLocationItem = useCallback(({ item }: { item: LocationData }) => {
     return (
       <TouchableOpacity
         style={styles.locationItem}
@@ -206,14 +210,14 @@ export default function LocationSelectorModal({
         <View style={styles.locationIcon}>
           <Text style={styles.locationIconText}>📍</Text>
         </View>
-        
+
         <View style={styles.locationContent}>
           <Text style={styles.locationName}>{item.name}</Text>
           <Text style={styles.locationAddress} numberOfLines={1}>
             {item.address}
           </Text>
         </View>
-        
+
         {item.distance !== undefined && (
           <Text style={styles.locationDistance}>
             {formatDistance(item.distance)}
@@ -221,7 +225,7 @@ export default function LocationSelectorModal({
         )}
       </TouchableOpacity>
     );
-  };
+  }, [handleSelectLocation]);
 
   return (
     <Modal
@@ -232,15 +236,9 @@ export default function LocationSelectorModal({
     >
       <SafeAreaView style={styles.container}>
         {/* 顶部导航 */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
-            <Text style={styles.cancelButtonText}>取消</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>选择地点</Text>
-          <View style={styles.placeholder} />
-        </View>
+        {/* Header hidden */}
 
-        {/* 搜索框 */}
+        {/* 搜索?'*/}
         <View style={styles.searchContainer}>
           <View style={styles.searchBox}>
             <Text style={styles.searchIcon}>🔍</Text>
@@ -260,47 +258,39 @@ export default function LocationSelectorModal({
           </View>
         </View>
 
-        {/* 地图预览区域 */}
-        <View style={styles.mapContainer}>
-          <View style={styles.mapPlaceholder}>
-            <Text style={styles.mapPlaceholderText}>🗺️</Text>
-            <Text style={styles.mapPlaceholderSubtext}>地图加载中...</Text>
-          </View>
-          
-          {/* 重新定位按钮 */}
-          <TouchableOpacity
-            style={styles.relocateButton}
-            onPress={getCurrentLocation}
-          >
-            <Text style={styles.relocateIcon}>⊕</Text>
-          </TouchableOpacity>
-        </View>
 
-        {/* 当前位置 */}
-        {currentLocation && (
-          <View style={styles.currentLocationSection}>
+        {/* 筛选标签 */}
+        {!searchText.trim() && (
+          <View style={styles.filterSection}>
             <TouchableOpacity
-              style={styles.currentLocationItem}
-              onPress={() => handleSelectLocation(currentLocation)}
+              style={[styles.filterTab, activeFilter === 'nearby' && styles.filterTabActive]}
+              onPress={() => handleFilterChange('nearby')}
+              activeOpacity={0.7}
             >
-              <View style={styles.currentLocationIcon}>
-                <Text style={styles.currentLocationIconText}>📍</Text>
-              </View>
-              <View style={styles.currentLocationContent}>
-                <Text style={styles.currentLocationName}>
-                  {currentLocation.name}
-                </Text>
-                <Text style={styles.currentLocationAddress}>
-                  {currentLocation.address}
-                </Text>
-              </View>
+              <Text style={[styles.filterTabText, activeFilter === 'nearby' && styles.filterTabTextActive]}>
+                附近
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.filterTab, activeFilter === 'recent' && styles.filterTabActive]}
+              onPress={() => handleFilterChange('recent')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.filterTabText, activeFilter === 'recent' && styles.filterTabTextActive]}>
+                最近
+              </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* 附近地点列表 */}
+        {/* 地点列表 */}
         <View style={styles.listContainer}>
-          <Text style={styles.sectionTitle}>附近地点</Text>
+          {!searchText.trim() && locations.length === 0 && activeFilter === 'recent' && (
+            <View style={styles.emptyRecentContainer}>
+              <Text style={styles.emptyRecentText}>暂无最近使用的城市</Text>
+              <Text style={styles.emptyRecentHint}>选择城市后会显示在这里</Text>
+            </View>
+          )}
           
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -382,78 +372,43 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_SECONDARY,
     paddingHorizontal: 4,
   },
-  mapContainer: {
-    height: 200,
-    backgroundColor: COLORS.MAP_BACKGROUND,
-    position: 'relative',
-  },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapPlaceholderText: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
-  mapPlaceholderSubtext: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  relocateButton: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.BACKGROUND,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  relocateIcon: {
-    fontSize: 24,
-    color: COLORS.TEXT_PRIMARY,
-  },
-  currentLocationSection: {
+  filterSection: {
+    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    gap: 12,
     borderBottomWidth: 0.5,
     borderBottomColor: COLORS.BORDER,
   },
-  currentLocationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  filterTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: COLORS.SEARCH_BACKGROUND,
   },
-  currentLocationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  filterTabActive: {
     backgroundColor: COLORS.PRIMARY,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
   },
-  currentLocationIconText: {
-    fontSize: 20,
-  },
-  currentLocationContent: {
-    flex: 1,
-  },
-  currentLocationName: {
-    fontSize: 16,
-    fontWeight: '600',
+  filterTabText: {
+    fontSize: 14,
     color: COLORS.TEXT_PRIMARY,
-    marginBottom: 2,
+    fontWeight: '500',
   },
-  currentLocationAddress: {
-    fontSize: 13,
+  filterTabTextActive: {
+    color: COLORS.BACKGROUND,
+  },
+  emptyRecentContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+  },
+  emptyRecentText: {
+    fontSize: 16,
     color: COLORS.TEXT_SECONDARY,
+    marginBottom: 8,
+  },
+  emptyRecentHint: {
+    fontSize: 13,
+    color: COLORS.TEXT_PLACEHOLDER,
   },
   listContainer: {
     flex: 1,
@@ -516,6 +471,30 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     color: COLORS.TEXT_SECONDARY,
+  },
+  hotCitiesSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  hotCitiesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+  },
+  hotCityItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: COLORS.SEARCH_BACKGROUND,
+    borderRadius: 20,
+    marginRight: 10,
+    marginBottom: 10,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  hotCityText: {
+    color: COLORS.TEXT_PRIMARY,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

@@ -1,15 +1,21 @@
 /**
  * ReportModal - 举报弹窗组件
- * 
+ *
  * 功能：
- * - 多种举报类型选择
- * - 举报描述输入
- * - 图片上传（可选）
+ * - 多种举报类型选择（从API获取）
+ * - 举报描述输入（最多200字）
+ * - 图片上传（最多9张）
  * - 表单验证
+ * - 与后端API对接
+ *
+ * 后端接口:
+ * - GET  /xypai-content/api/v1/content/report/types  获取举报类型列表
+ * - POST /xypai-content/api/v1/content/report        提交举报
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Animated,
     Image,
@@ -21,6 +27,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { reportApi, ReportTargetType, ReportType } from '../../../../services/api/reportApi';
 
 // 颜色常量
 const COLORS = {
@@ -34,39 +42,59 @@ const COLORS = {
   SELECTED: '#F0E6FF',
   INPUT_BG: '#F5F5F5',
   PLACEHOLDER: '#CCCCCC',
+  DISABLED: '#CCCCCC',
 } as const;
 
-// 举报类型 - 按照图片顺序
-const REPORT_TYPES = [
-  { id: 'spam', label: '辱骂引战' },
-  { id: 'inappropriate', label: '色情低俗' },
-  { id: 'fraud', label: '诈骗' },
-  { id: 'illegal', label: '违法犯罪' },
-  { id: 'false', label: '不实信息' },
-  { id: 'infringement', label: '未成年人相关' },
-  { id: 'harassment', label: '内容引人不适' },
-  { id: 'other', label: '其他' },
+// 默认举报类型（作为降级方案）
+const DEFAULT_REPORT_TYPES: ReportType[] = [
+  { key: 'insult', label: '辱骂引战' },
+  { key: 'porn', label: '色情低俗' },
+  { key: 'fraud', label: '诈骗' },
+  { key: 'illegal', label: '违法犯罪' },
+  { key: 'fake', label: '不实信息' },
+  { key: 'minor', label: '未成年人相关' },
+  { key: 'uncomfortable', label: '内容引人不适' },
+  { key: 'other', label: '其他' },
 ];
+
+// 最大图片数量
+const MAX_IMAGES = 9;
+// 最大描述字符数
+const MAX_DESCRIPTION_LENGTH = 200;
 
 interface ReportModalProps {
   visible: boolean;
   onClose: () => void;
-  feedId: string;
-  feedTitle?: string;
+  targetType?: ReportTargetType; // 目标类型: feed, comment, user
+  targetId: string | number;     // 目标ID
+  targetTitle?: string;          // 目标标题（用于显示）
 }
 
 export default function ReportModal({
   visible,
   onClose,
-  feedId,
-  feedTitle,
+  targetType = 'feed',
+  targetId,
+  targetTitle,
 }: ReportModalProps) {
+  // 状态
+  const [reportTypes, setReportTypes] = useState<ReportType[]>(DEFAULT_REPORT_TYPES);
   const [selectedType, setSelectedType] = useState<string>('');
   const [description, setDescription] = useState('');
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  React.useEffect(() => {
+  // 加载举报类型
+  useEffect(() => {
+    if (visible) {
+      loadReportTypes();
+    }
+  }, [visible]);
+
+  // 动画效果
+  useEffect(() => {
     if (visible) {
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -88,20 +116,71 @@ export default function ReportModal({
     }
   }, [visible]);
 
-  const handleTypeSelect = (typeId: string) => {
-    setSelectedType(typeId);
+  // 加载举报类型列表
+  const loadReportTypes = async () => {
+    setLoading(true);
+    try {
+      const types = await reportApi.getReportTypes();
+      if (types && types.length > 0) {
+        setReportTypes(types);
+      }
+    } catch (error) {
+      console.error('[ReportModal] 加载举报类型失败', error);
+      // 使用默认类型
+      setReportTypes(DEFAULT_REPORT_TYPES);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleImageUpload = () => {
-    // TODO: 实现图片上传功能
-    console.log('[ReportModal] 上传图片');
-    Alert.alert('提示', '图片上传功能开发中...');
+  // 选择举报类型
+  const handleTypeSelect = (typeKey: string) => {
+    setSelectedType(typeKey);
   };
 
+  // 上传图片
+  const handleImageUpload = async () => {
+    if (uploadedImages.length >= MAX_IMAGES) {
+      Alert.alert('提示', `最多上传${MAX_IMAGES}张图片`);
+      return;
+    }
+
+    try {
+      // 请求权限
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相册权限才能上传图片');
+        return;
+      }
+
+      // 选择图片
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        allowsMultipleSelection: true,
+        selectionLimit: MAX_IMAGES - uploadedImages.length,
+      });
+
+      if (!result.canceled && result.assets) {
+        const newImages = result.assets.map(asset => asset.uri);
+        setUploadedImages(prev => {
+          const combined = [...prev, ...newImages];
+          return combined.slice(0, MAX_IMAGES);
+        });
+      }
+    } catch (error) {
+      console.error('[ReportModal] 选择图片失败', error);
+      Alert.alert('错误', '选择图片失败，请重试');
+    }
+  };
+
+  // 移除图片
   const handleRemoveImage = (index: number) => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  // 提交举报
   const handleSubmit = async () => {
     // 验证
     if (!selectedType) {
@@ -114,16 +193,31 @@ export default function ReportModal({
       return;
     }
 
+    setSubmitting(true);
+
     try {
       console.log('[ReportModal] 提交举报', {
-        feedId,
-        type: selectedType,
+        targetType,
+        targetId,
+        reasonType: selectedType,
         description,
         images: uploadedImages,
       });
 
-      // TODO: 调用举报API
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // TODO: 上传图片到OSS获取URL（如果有本地图片）
+      // 目前先使用本地URI作为占位，后续需要集成图片上传服务
+      const imageUrls = uploadedImages;
+
+      // 调用举报API
+      const result = await reportApi.submitReport({
+        targetType,
+        targetId: Number(targetId),
+        reasonType: selectedType,
+        description: description.trim(),
+        evidenceImages: imageUrls.length > 0 ? imageUrls : undefined,
+      });
+
+      console.log('[ReportModal] 举报成功', result);
 
       Alert.alert('提交成功', '感谢你的反馈，我们会尽快处理', [
         {
@@ -131,14 +225,16 @@ export default function ReportModal({
           onPress: onClose,
         },
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[ReportModal] 举报失败', error);
-      Alert.alert('错误', '提交失败，请重试');
+      const message = error?.message || '提交失败，请重试';
+      Alert.alert('错误', message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const characterCount = description.length;
-  const maxCharacters = 200;
 
   return (
     <Modal
@@ -154,7 +250,7 @@ export default function ReportModal({
           activeOpacity={1}
           onPress={onClose}
         />
-        
+
         <Animated.View
           style={[
             styles.container,
@@ -176,40 +272,57 @@ export default function ReportModal({
               <Text style={styles.backButtonText}>←</Text>
             </TouchableOpacity>
             <Text style={styles.headerTitle}>举报</Text>
-            <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
-              <Text style={styles.submitButtonText}>提交</Text>
+            <TouchableOpacity
+              onPress={handleSubmit}
+              style={styles.submitButton}
+              disabled={submitting || !selectedType || !description.trim()}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color={COLORS.PRIMARY} />
+              ) : (
+                <Text style={[
+                  styles.submitButtonText,
+                  (!selectedType || !description.trim()) && styles.submitButtonTextDisabled
+                ]}>
+                  提交
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
+          <ScrollView
             style={styles.content}
             showsVerticalScrollIndicator={false}
           >
             {/* 举报类型选择 */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>请选择你举报的类型</Text>
-              <View style={styles.typeGrid}>
-                {REPORT_TYPES.map((type) => (
-                  <TouchableOpacity
-                    key={type.id}
-                    style={[
-                      styles.typeButton,
-                      selectedType === type.id && styles.typeButtonSelected,
-                    ]}
-                    onPress={() => handleTypeSelect(type.id)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
+              {loading ? (
+                <ActivityIndicator size="small" color={COLORS.PRIMARY} style={{ marginVertical: 20 }} />
+              ) : (
+                <View style={styles.typeGrid}>
+                  {reportTypes.map((type) => (
+                    <TouchableOpacity
+                      key={type.key}
                       style={[
-                        styles.typeButtonText,
-                        selectedType === type.id && styles.typeButtonTextSelected,
+                        styles.typeButton,
+                        selectedType === type.key && styles.typeButtonSelected,
                       ]}
+                      onPress={() => handleTypeSelect(type.key)}
+                      activeOpacity={0.7}
                     >
-                      {type.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <Text
+                        style={[
+                          styles.typeButtonText,
+                          selectedType === type.key && styles.typeButtonTextSelected,
+                        ]}
+                      >
+                        {type.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* 举报描述 */}
@@ -223,18 +336,19 @@ export default function ReportModal({
                   value={description}
                   onChangeText={setDescription}
                   multiline
-                  maxLength={maxCharacters}
+                  maxLength={MAX_DESCRIPTION_LENGTH}
                   textAlignVertical="top"
+                  editable={!submitting}
                 />
                 <Text style={styles.characterCount}>
-                  {characterCount}/{maxCharacters}
+                  {characterCount}/{MAX_DESCRIPTION_LENGTH}
                 </Text>
               </View>
             </View>
 
             {/* 上传图片 */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>上传图片 (选填)</Text>
+              <Text style={styles.sectionTitle}>上传图片 (选填，最多{MAX_IMAGES}张)</Text>
               <View style={styles.imageUploadContainer}>
                 {uploadedImages.map((image, index) => (
                   <View key={index} style={styles.uploadedImageWrapper}>
@@ -242,17 +356,19 @@ export default function ReportModal({
                     <TouchableOpacity
                       style={styles.removeImageButton}
                       onPress={() => handleRemoveImage(index)}
+                      disabled={submitting}
                     >
                       <Text style={styles.removeImageButtonText}>✕</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
-                
-                {uploadedImages.length < 3 && (
+
+                {uploadedImages.length < MAX_IMAGES && (
                   <TouchableOpacity
                     style={styles.uploadButton}
                     onPress={handleImageUpload}
                     activeOpacity={0.7}
+                    disabled={submitting}
                   >
                     <Text style={styles.uploadButtonIcon}>+</Text>
                   </TouchableOpacity>
@@ -316,11 +432,16 @@ const styles = StyleSheet.create({
     padding: 4,
     width: 60,
     alignItems: 'flex-end',
+    minHeight: 24,
+    justifyContent: 'center',
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '500',
     color: COLORS.PRIMARY,
+  },
+  submitButtonTextDisabled: {
+    color: COLORS.DISABLED,
   },
   content: {
     flex: 1,

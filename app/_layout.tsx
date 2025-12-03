@@ -81,12 +81,23 @@ export default function RootLayout() {
           }} 
         />
         
-        {/* 发布页面（受保护） */}
+        {/* 发布组局页面（受保护） */}
         <Stack.Screen 
           name="publish" 
           options={{ 
             presentation: 'modal',
-            title: '发布内容',
+            title: '发布组局',
+            headerShown: false,
+            animation: 'slide_from_bottom',
+          }} 
+        />
+        
+        {/* 发布动态页面（受保护） */}
+        <Stack.Screen 
+          name="publish-post" 
+          options={{ 
+            presentation: 'modal',
+            title: '发布动态',
             headerShown: false,
             animation: 'slide_from_bottom',
           }} 

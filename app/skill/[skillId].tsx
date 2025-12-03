@@ -16,10 +16,11 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 export default function DetailScreen() {
-  const { skillId, userId, isMyProduct } = useLocalSearchParams<{ 
+  const { skillId, userId, isMyProduct, contentType } = useLocalSearchParams<{ 
     skillId: string; 
     userId?: string;
     isMyProduct?: string;
+    contentType?: 'service' | 'event';
   }>();
   
   // Validate skillId
@@ -42,6 +43,7 @@ export default function DetailScreen() {
           skillId={skillId} 
           userId={userId || ''} 
           isMyProduct={isMyProduct === 'true'}
+          contentType={contentType || 'service'}
         />
       </ErrorBoundary>
     </>

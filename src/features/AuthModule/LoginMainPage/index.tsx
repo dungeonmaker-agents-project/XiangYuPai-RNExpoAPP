@@ -54,8 +54,8 @@ import { AuthSafeArea } from '../SharedComponents/Layout/AuthSafeArea';
 // Store imports
 import { useAuthStore } from '../stores/authStore';
 
-// ========== ✅ 导入真实后端API ==========
-import { authApi as backendAuthApi } from '../../../../services/api/authApi';
+// ========== 🚫 注释掉真实后端API ==========
+// import { authApi as backendAuthApi } from '../../../../services/api/authApi';
 // =========================================
 
 // 🆕 凭证存储
@@ -70,6 +70,9 @@ import {
     useCountdown,
     useFormValidation
 } from './useLoginMainPage';
+
+// 🆕 测试账号提示
+import { printTestAccounts } from '../config/printTestAccounts';
 // #endregion
 
 // #region 3. Types & Schema
@@ -107,7 +110,7 @@ const CONFIG = {
  * LoginMainPage 主组件
  */
 const LoginMainPage: React.FC<LoginMainPageProps> = ({
-  initialMode = 'password',
+  initialMode = 'code',
 }) => {
   const router = useRouter();
   const { login } = useAuthStore();
@@ -148,6 +151,9 @@ const LoginMainPage: React.FC<LoginMainPageProps> = ({
   
   // ============ 初始化 - 加载保存的凭证（仅用于快速登录） ============
   useEffect(() => {
+    // 🆕 打印测试账号信息到控制台
+    printTestAccounts();
+    
     const loadSavedCredentials = async () => {
       try {
         console.log('[LoginMainPage] 🔍 Loading saved credentials...');
@@ -214,7 +220,7 @@ const LoginMainPage: React.FC<LoginMainPageProps> = ({
   }, []);
   
   /**
-   * 发送验证码 - ✅ 使用真实后端API
+   * 发送验证码（使用假数据）
    */
   const handleSendCode = useCallback(async () => {
     if (validation.sendCodeDisabled || isCountingDown) return;
@@ -222,22 +228,39 @@ const LoginMainPage: React.FC<LoginMainPageProps> = ({
     try {
       setLoading(prev => ({ ...prev, sendCode: true }));
       
-      console.log('[LoginMainPage] 📱 发送验证码（连接后端）');
+      // ========== 🚫 注释掉真实API调用 ==========
+      // await backendAuthApi.sendSmsCode({
+      //   mobile: formData.phoneNumber,
+      //   type: 'login',
+      //   clientType: 'app',
+      // });
+      // =========================================
+      
+      // ========== ✅ 使用假数据模拟发送验证码 ==========
+      console.log('[LoginMainPage] 📱 模拟发送验证码');
       console.log(`   手机号: ${formData.phoneNumber}`);
       
-      // 调用真实后端API
-      await backendAuthApi.sendSmsCode({
-        mobile: formData.phoneNumber,
-        type: 'login',
-        clientType: 'app',
-      });
+      // 模拟网络延迟
+      await new Promise(resolve => setTimeout(resolve, 800));
       
-      console.log('   ✅ 验证码发送成功（真实后端）');
+      console.log('   ✅ 验证码发送成功（模拟）');
+      // =========================================
       
-      Alert.alert('成功', '验证码已发送，请查收短信');
+      // 根据手机号给出对应的验证码提示
+      let codeHint = '';
+      if (formData.phoneNumber === '13800138000') {
+        codeHint = '\n\n🔐 该账号的验证码是: 888888';
+      } else if (formData.phoneNumber === '13800138001') {
+        codeHint = '\n\n🔐 该账号的验证码是: 666666';
+      } else if (formData.phoneNumber === '13800138002') {
+        codeHint = '\n\n🔐 该账号的验证码是: 123456';
+      } else {
+        codeHint = '\n\n⚠️ 非测试账号无法登录\n请使用测试账号（138001380xx）';
+      }
+      
+      Alert.alert('验证码已发送', `请输入验证码登录${codeHint}`);
       startCountdown();
     } catch (error: any) {
-      console.error('   ❌ 验证码发送失败:', error);
       Alert.alert('发送失败', error.message || '验证码发送失败，请稍后重试');
     } finally {
       setLoading(prev => ({ ...prev, sendCode: false }));
@@ -391,9 +414,12 @@ const LoginMainPage: React.FC<LoginMainPageProps> = ({
    * 查看协议
    */
   const handleViewAgreement = useCallback((type: 'user' | 'privacy') => {
-    const title = type === 'user' ? '用户协议' : '隐私政策';
-    Alert.alert(title, `${title}内容...`);
-  }, []);
+    if (type === 'user') {
+      router.push('/modal/user-terms');
+    } else {
+      router.push('/modal/privacy-policy');
+    }
+  }, [router]);
   
   return (
     <AuthSafeArea>
@@ -432,22 +458,23 @@ const LoginMainPage: React.FC<LoginMainPageProps> = ({
             <AuthInputArea
               loginMode={loginMode}
               phoneNumber={formData.phoneNumber}
-              onPhoneNumberChange={(phone) => 
+              onPhoneNumberChange={(phone) =>
                 setFormData(prev => ({ ...prev, phoneNumber: phone }))
               }
               countryCode={formData.countryCode}
               onCountryCodePress={handleOpenRegionSelector}
               phoneValid={validation.phoneValid}
               password={formData.password}
-              onPasswordChange={(password) => 
+              onPasswordChange={(password) =>
                 setFormData(prev => ({ ...prev, password }))
               }
               passwordValid={validation.passwordValid}
               code={formData.verificationCode}
-              onCodeChange={(code) => 
+              onCodeChange={(code) =>
                 setFormData(prev => ({ ...prev, verificationCode: code }))
               }
               codeValid={validation.codeValid}
+              autoFocus={false}
               style={styles.authInputArea}
             />
           )}

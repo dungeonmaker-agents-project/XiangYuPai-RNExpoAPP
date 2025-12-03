@@ -6,11 +6,12 @@ import { TabType } from '../types';
 
 /**
  * Tab配置
+ * 注：key与BFF API一致使用'nearby'，label显示为"同城"
  */
 export const TABS: Array<{ key: TabType; label: string }> = [
   { key: 'follow', label: '关注' },
   { key: 'hot', label: '热门' },
-  { key: 'local', label: '同城' },
+  { key: 'nearby', label: '同城' },
 ];
 
 /**

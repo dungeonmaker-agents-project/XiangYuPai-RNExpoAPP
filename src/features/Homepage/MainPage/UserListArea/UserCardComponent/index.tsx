@@ -13,6 +13,7 @@
  */
 
 // #region 1. Imports
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Image,
@@ -63,10 +64,19 @@ const CARD_CONFIG = {
  * 展示用户信息的可展开卡片
  */
 export const UserCardComponent: React.FC<UserCardComponentProps> = ({ user, onPress }) => {
+  const router = useRouter();
   const [showDynamics, setShowDynamics] = useState(false);
-  
+
   const processedUser = processUserData(user);
   const { formatDistance, formatStatus, truncateText } = utilsCardFormat();
+
+  // 跳转到动态详情页
+  const handleFeedPress = (feedId: number) => {
+    router.push({
+      pathname: '/feed/[id]',
+      params: { id: String(feedId) },
+    });
+  };
 
   const handleContentPress = () => {
     setShowDynamics(!showDynamics);
@@ -133,27 +143,47 @@ export const UserCardComponent: React.FC<UserCardComponentProps> = ({ user, onPr
   const renderDynamics = () => {
     if (!showDynamics) return null;
 
+    // 检查是否有真实的动态数据
+    const hasFeedsData = processedUser.feeds && processedUser.feeds.length > 0;
+
+    // 没有动态时显示占位符
+    if (!hasFeedsData) {
+      return (
+        <View>
+          <View style={styles.divider} />
+          <View style={styles.emptyDynamicsSection}>
+            <Text style={styles.emptyDynamicsText}>暂无动态内容</Text>
+          </View>
+        </View>
+      );
+    }
+
+    // 有动态时正常显示（最多3条）
+    const feedsToShow = processedUser.feeds.slice(0, CARD_CONFIG.maxPhotos);
+
     return (
       <View>
         <View style={styles.divider} />
-        
+
         <View style={styles.dynamicsSection}>
           <View style={styles.dynamicsGrid}>
-            {processedUser.photos.slice(0, CARD_CONFIG.maxPhotos).map((photo, index) => (
-              <TouchableOpacity 
-                key={index} 
+            {feedsToShow.map((feed) => (
+              <TouchableOpacity
+                key={feed.feedId}
                 style={styles.dynamicItem}
-                onPress={onPress}
+                onPress={() => handleFeedPress(feed.feedId)}
               >
                 <View style={styles.dynamicImageContainer}>
-                  <Image source={{ uri: photo }} style={styles.dynamicImage} />
+                  <Image source={{ uri: feed.coverImage }} style={styles.dynamicImage} />
                   <View style={styles.dynamicStats}>
-                    <Text style={styles.dynamicLikes}>❤️ {88 + index * 12}</Text>
+                    <Text style={styles.dynamicLikes}>❤️ {feed.likeCount}</Text>
                   </View>
                 </View>
-                
+
                 <View style={styles.dynamicTextContainer}>
-                  <Text style={styles.dynamicTitle}>最新动态 {index + 1}</Text>
+                  <Text style={styles.dynamicTitle} numberOfLines={1}>
+                    {feed.content || '暂无内容'}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -299,10 +329,20 @@ const styles = StyleSheet.create({
   dynamicsSection: {
     paddingHorizontal: 14,
   },
+  emptyDynamicsSection: {
+    paddingHorizontal: 14,
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyDynamicsText: {
+    fontSize: 14,
+    color: COLORS.gray500,
+  },
   dynamicsGrid: {
     flexDirection: 'row',
     gap: 8,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     flexWrap: 'wrap',
   },
   dynamicItem: {

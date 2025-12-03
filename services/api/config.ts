@@ -3,56 +3,13 @@
  * 统一管理API基础配置、环境变量、请求配置等
  */
 
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-
-/**
- * 🔍 检测是否是Android模拟器
- * 
- * 检测方法：
- * 1. 检查设备品牌/型号是否包含模拟器特征
- * 2. 检查是否在开发环境
- * 
- * @returns true=模拟器, false=真机
- */
-const isAndroidEmulator = (): boolean => {
-  if (Platform.OS !== 'android') return false;
-  
-  const { deviceName, isDevice } = Constants;
-  
-  // Expo Constants提供的isDevice属性（false表示模拟器）
-  if (isDevice === false) {
-    console.log('[API Config] 🔍 检测到Android模拟器（通过isDevice）');
-    return true;
-  }
-  
-  // 通过设备名称检测（常见的模拟器名称特征）
-  const emulatorPatterns = [
-    /emulator/i,
-    /android sdk/i,
-    /sdk_gphone/i,
-    /generic/i,
-    /unknown/i,
-  ];
-  
-  const deviceNameLower = (deviceName || '').toLowerCase();
-  const isEmulatorByName = emulatorPatterns.some(pattern => pattern.test(deviceNameLower));
-  
-  if (isEmulatorByName) {
-    console.log('[API Config] 🔍 检测到Android模拟器（通过设备名称）:', deviceName);
-    return true;
-  }
-  
-  console.log('[API Config] 📱 检测到Android真机:', deviceName);
-  return false;
-};
 
 /**
  * 🤖 自动检测环境并返回正确的API地址
  * 
  * 关键：Android模拟器访问主机需要使用特殊IP
- * - Android Studio模拟器: 10.0.2.2 (自动检测)
- * - Android真机: 主机局域网IP (自动检测)
+ * - Android Studio模拟器: 10.0.2.2
  * - iOS模拟器: localhost
  * - 真实设备: 主机局域网IP
  */
@@ -65,14 +22,10 @@ const getDevApiUrl = (): string => {
   
   // 根据平台自动选择
   if (Platform.OS === 'android') {
-    // 🤖 自动检测Android模拟器 vs 真机
-    if (isAndroidEmulator()) {
-      console.log('[API Config] 🤖 Android模拟器 → 使用 10.0.2.2:8080');
-      return 'http://10.0.2.2:8080';
-    } else {
-      console.log('[API Config] 📱 Android真机 → 使用主机IP: 192.168.1.108:8080');
-      return 'http://192.168.1.108:8080';
-    }
+    // 🔧 使用主机实际IP（10.0.2.2映射不稳定）
+    console.log('[API Config] 🤖 检测到Android环境，使用主机实际IP: 192.168.1.108:8080');
+    // return 'http://192.168.1.108:8080';
+    return 'http://10.0.2.2:8080';  // ❌ 映射不稳定，已禁用
   } else if (Platform.OS === 'ios') {
     // iOS模拟器可以直接使用localhost
     console.log('[API Config] 🍎 检测到iOS环境，使用 localhost:8080');
@@ -223,6 +176,15 @@ export const API_ENDPOINTS = {
     USER_CONTENTS: '/xypai-content/api/v1/contents/user/:userId',
     MY_CONTENTS: '/xypai-content/api/v1/contents/my',
   },
+
+  // Feed流相关（已有接口 - xypai-content模块 FeedController）
+  // ⚠️ 注意：通过网关访问需要加 /xypai-content 前缀
+  FEED: {
+    LIST: '/xypai-content/api/v1/content/feed/:tabType',        // GET - tabType: follow/hot/local
+    DETAIL: '/xypai-content/api/v1/content/detail/:feedId',     // GET - 动态详情
+    PUBLISH: '/xypai-content/api/v1/content/publish',           // POST - 发布动态
+    DELETE: '/xypai-content/api/v1/content/:feedId',            // DELETE - 删除动态
+  },
   
   // 评论相关（v7.1新增 - xypai-content模块）
   COMMENT: {
@@ -235,13 +197,18 @@ export const API_ENDPOINTS = {
     COUNT: '/xypai-content/api/v1/comments/count/:contentId',    // 统计评论
   },
   
-  // 内容互动（已有 - xypai-content模块）
+  // 内容互动（已有 - xypai-content模块 InteractionController）
+  // ⚠️ 注意：通过网关访问需要加 /xypai-content 前缀
   INTERACTION: {
-    LIKE: '/xypai-content/api/v1/content-actions/like/:contentId',
-    UNLIKE: '/xypai-content/api/v1/content-actions/like/:contentId',  // DELETE
-    COLLECT: '/xypai-content/api/v1/content-actions/collect/:contentId',
-    UNCOLLECT: '/xypai-content/api/v1/content-actions/collect/:contentId', // DELETE
-    SHARE: '/xypai-content/api/v1/content-actions/share/:contentId',
+    LIKE: '/xypai-content/api/v1/interaction/like',              // POST - 点赞/取消点赞
+    COLLECT: '/xypai-content/api/v1/interaction/collect',        // POST - 收藏/取消收藏
+    SHARE: '/xypai-content/api/v1/interaction/share',            // POST - 分享
+    // 旧接口（保留兼容）
+    LIKE_OLD: '/xypai-content/api/v1/content-actions/like/:contentId',
+    UNLIKE_OLD: '/xypai-content/api/v1/content-actions/like/:contentId',  // DELETE
+    COLLECT_OLD: '/xypai-content/api/v1/content-actions/collect/:contentId',
+    UNCOLLECT_OLD: '/xypai-content/api/v1/content-actions/collect/:contentId', // DELETE
+    SHARE_OLD: '/xypai-content/api/v1/content-actions/share/:contentId',
     STATUS: '/xypai-content/api/v1/content-actions/:contentId/status',      // 用户互动状态
     STATISTICS: '/xypai-content/api/v1/content-actions/:contentId/statistics', // 统计数据
   },
@@ -278,26 +245,163 @@ export const API_ENDPOINTS = {
     LIFE_SERVICE: '/xypai-user/api/v1/services/life/:serviceId',
   },
   
-  // 用户关系相关（已有接口 - xypai-user模块）
+  // Profile 页面专用端点（✅ 后端已测试通过）
+  // 测试文件参考: AppProfilePageTest.java, AppOtherUserProfilePageTest.java, AppEditProfilePageTest.java
+  PROFILE_PAGE: {
+    // 页面数据加载
+    EDIT: '/xypai-user/api/user/profile/edit',           // GET 编辑页面数据
+    HEADER: '/xypai-user/api/user/profile/header',       // GET 主页头部
+    OTHER: '/xypai-user/api/user/profile/other',         // GET /{userId} 他人主页
+    INFO: '/xypai-user/api/user/profile/info',           // GET 资料详情
+
+    // Tab 数据（需要调用 xypai-content）
+    // ⚠️ 前端应直接调用 xypai-content 服务
+    // POSTS: '/xypai-content/api/v1/content/feed/user',  // GET /{userId} 动态列表
+    // FAVORITES: '/xypai-content/api/v1/interaction/collect/my', // GET 收藏列表
+    // LIKES: '/xypai-content/api/v1/interaction/like/my',        // GET 点赞列表
+
+    // 单字段更新
+    UPDATE_NICKNAME: '/xypai-user/api/user/profile/nickname',     // PUT
+    UPDATE_GENDER: '/xypai-user/api/user/profile/gender',         // PUT
+    UPDATE_BIRTHDAY: '/xypai-user/api/user/profile/birthday',     // PUT
+    UPDATE_RESIDENCE: '/xypai-user/api/user/profile/residence',   // PUT
+    UPDATE_HEIGHT: '/xypai-user/api/user/profile/height',         // PUT
+    UPDATE_WEIGHT: '/xypai-user/api/user/profile/weight',         // PUT
+    UPDATE_OCCUPATION: '/xypai-user/api/user/profile/occupation', // PUT
+    UPDATE_WECHAT: '/xypai-user/api/user/profile/wechat',         // PUT
+    UPDATE_BIO: '/xypai-user/api/user/profile/bio',               // PUT
+
+    // 头像上传
+    AVATAR_UPLOAD: '/xypai-user/api/user/profile/avatar/upload',  // POST multipart
+  },
+
+  // 技能管理端点（✅ 后端已测试通过）
+  // 测试文件参考: AppSkillManagementPageTest.java
+  SKILL: {
+    // 配置
+    CONFIG: '/xypai-user/api/skills/config',              // GET 技能配置（技能列表、段位选项等）
+
+    // 创建
+    CREATE_ONLINE: '/xypai-user/api/user/skills/online',   // POST 创建线上技能
+    CREATE_OFFLINE: '/xypai-user/api/user/skills/offline', // POST 创建线下技能
+
+    // 查询
+    MY_LIST: '/xypai-user/api/user/skills/my',             // GET 我的技能列表
+    DETAIL: '/xypai-user/api/user/skills',                 // GET /{skillId}
+    USER_LIST: '/xypai-user/api/user/skills/user',         // GET /{userId}
+    NEARBY: '/xypai-user/api/user/skills/nearby',          // GET 附近技能
+
+    // 操作
+    UPDATE: '/xypai-user/api/user/skills',                 // PUT /{skillId}
+    DELETE: '/xypai-user/api/user/skills',                 // DELETE /{skillId}
+    TOGGLE: '/xypai-user/api/user/skills',                 // PUT /{skillId}/toggle
+
+    // 图片上传
+    IMAGE_UPLOAD: '/xypai-user/api/skills/images/upload',  // POST 上传技能图片
+  },
+
+  // Content Tab 数据端点（动态/收藏/点赞 - xypai-content模块）
+  // ⚠️ 这些接口数据来源于 xypai-content 模块
+  CONTENT_TAB: {
+    USER_FEED: '/xypai-content/api/v1/content/feed/user',     // GET /{userId} 用户动态列表（待实现）
+    MY_COLLECT: '/xypai-content/api/v1/interaction/collect/my', // GET 我的收藏列表（待实现）
+    MY_LIKE: '/xypai-content/api/v1/interaction/like/my',       // GET 我的点赞列表（已存在）
+  },
+
+  // 用户关系相关（已有接口 - xypai-user模块 RelationController）
+  // ⚠️ 注意：通过网关访问需要加 /xypai-user 前缀
   RELATION: {
-    // 关注相关
-    FOLLOW: '/xypai-user/api/v1/relations/follow',             // POST/DELETE /{targetUserId}
-    FOLLOWING: '/xypai-user/api/v1/relations/following',        // GET 当前用户关注列表
-    FOLLOWERS: '/xypai-user/api/v1/relations/followers',        // GET 当前用户粉丝列表
+    // 关注相关（✅ 后端已实现）
+    FOLLOW: '/xypai-user/api/user/relation/follow/:followingId',     // POST - 关注用户
+    UNFOLLOW: '/xypai-user/api/user/relation/follow/:followingId',   // DELETE - 取消关注
+    FOLLOWING: '/xypai-user/api/user/relation/following',            // GET - 关注列表
+    FANS: '/xypai-user/api/user/relation/fans',                      // GET - 粉丝列表
+
+    // 拉黑相关（✅ 后端已实现）
+    BLOCK: '/xypai-user/api/user/relation/block/:blockedUserId',     // POST - 拉黑用户
+    UNBLOCK: '/xypai-user/api/user/relation/block/:blockedUserId',   // DELETE - 取消拉黑
+
+    // 举报相关（✅ 后端已实现）
+    REPORT: '/xypai-user/api/user/relation/report/:reportedUserId',  // POST - 举报用户
+
+    // 旧接口（保留兼容）
+    FOLLOW_OLD: '/xypai-user/api/v1/relations/follow',             // POST/DELETE /{targetUserId}
+    FOLLOWING_OLD: '/xypai-user/api/v1/relations/following',        // GET 当前用户关注列表
+    FOLLOWERS_OLD: '/xypai-user/api/v1/relations/followers',        // GET 当前用户粉丝列表
     USER_RELATIONS: '/xypai-user/api/v1/relations',             // GET /{userId}/following|followers
     CHECK: '/xypai-user/api/v1/relations/check',                // GET /{targetUserId}
     STATISTICS: '/xypai-user/api/v1/relations/statistics',      // GET
     USER_STATISTICS: '/xypai-user/api/v1/relations/:userId/statistics', // GET
-    
-    // 拉黑相关
-    BLOCK: '/xypai-user/api/v1/relations/block',                // POST/DELETE /{targetUserId}
     BLOCKED: '/xypai-user/api/v1/relations/blocked',            // GET 拉黑列表
-    
-    // 批量操作
     BATCH_FOLLOW: '/xypai-user/api/v1/relations/batch-follow',  // POST
     BATCH_UNFOLLOW: '/xypai-user/api/v1/relations/batch-unfollow', // POST
   },
-  
+
+  // BFF聚合服务（xypai-app-bff模块）- 首页用户推荐流
+  // ⚠️ 注意：通过网关访问需要加 /xypai-app-bff 前缀
+  // 测试文件参考: AppHomeFeedTest.java, Page05_LimitedTimeTest.java, Page06_SearchTest.java, Page07_SearchResultsTest.java, Page08_ActivityListTest.java, Page09_ActivityDetailTest.java, Page10_PublishActivityTest.java, Page11_ServiceListTest.java, Page12_ServiceDetailTest.java
+  BFF: {
+    // 首页用户推荐流（✅ 后端已测试通过）
+    HOME_FEED: '/xypai-app-bff/api/home/feed',              // GET ?type=online|offline&pageNum=1&pageSize=10&cityCode=440300
+
+    // 首页筛选（⚠️ 待后端实现）
+    FILTER_CONFIG: '/xypai-app-bff/api/home/filter/config', // GET ?type=online|offline
+    FILTER_APPLY: '/xypai-app-bff/api/home/filter/apply',   // POST
+
+    // 限时专享（✅ 后端已测试通过 - Page05_LimitedTimeTest.java）
+    LIMITED_TIME_LIST: '/xypai-app-bff/api/home/limited-time/list', // GET ?pageNum=1&pageSize=10&sortBy=smart&gender=all&language=
+
+    // 搜索页面（✅ 后端已测试通过 - Page06_SearchTest.java）
+    SEARCH_INIT: '/xypai-app-bff/api/search/init',          // GET - 获取搜索初始数据（历史+热门）
+    SEARCH_SUGGEST: '/xypai-app-bff/api/search/suggest',    // GET ?keyword=xxx&limit=10 - 获取搜索建议
+    SEARCH_HISTORY: '/xypai-app-bff/api/search/history',    // DELETE - 删除搜索历史
+
+    // 搜索结果页面（✅ 后端已测试通过 - Page07_SearchResultsTest.java）
+    SEARCH_SEARCH: '/xypai-app-bff/api/search/search',      // POST - 执行综合搜索
+    SEARCH_ALL: '/xypai-app-bff/api/search/all',            // GET ?keyword=xxx&pageNum=1&pageSize=10 - 全部Tab结果
+    SEARCH_USERS: '/xypai-app-bff/api/search/users',        // GET ?keyword=xxx&pageNum=1&pageSize=10 - 用户Tab结果
+    SEARCH_ORDERS: '/xypai-app-bff/api/search/orders',      // GET ?keyword=xxx&pageNum=1&pageSize=10 - 下单Tab结果
+    SEARCH_TOPICS: '/xypai-app-bff/api/search/topics',      // GET ?keyword=xxx&pageNum=1&pageSize=10 - 话题Tab结果
+
+    // 组局中心列表（✅ 后端已测试通过 - Page08_ActivityListTest.java）
+    ACTIVITY_LIST: '/xypai-app-bff/api/activity/list',      // GET ?pageNum=1&pageSize=10&sortBy=smart_recommend&gender=all&memberCount=2-4&activityType=billiards
+
+    // 组局详情（✅ 后端已测试通过 - Page09_ActivityDetailTest.java）
+    ACTIVITY_DETAIL: '/xypai-app-bff/api/activity/detail',  // GET /{activityId} - 获取活动详情
+    ACTIVITY_REGISTER: '/xypai-app-bff/api/activity/register', // POST - 报名参加活动
+    ACTIVITY_REGISTER_CANCEL: '/xypai-app-bff/api/activity/register/cancel', // POST - 取消报名
+
+    // 发布组局（✅ 后端已测试通过 - Page10_PublishActivityTest.java）
+    ACTIVITY_PUBLISH_CONFIG: '/xypai-app-bff/api/activity/publish/config', // GET - 获取发布配置（活动类型、价格单位、人数选项、平台费规则）
+    ACTIVITY_PUBLISH: '/xypai-app-bff/api/activity/publish', // POST - 发布活动
+    ACTIVITY_PUBLISH_PAY: '/xypai-app-bff/api/activity/publish/pay', // POST - 支付平台费
+
+    // 服务列表（✅ 后端已测试通过 - Page11_ServiceListTest.java）
+    SERVICE_LIST: '/xypai-app-bff/api/service/list', // GET ?skillType=王者荣耀&pageNum=1&pageSize=10&tabType=glory_king|online|offline&sortBy=price_asc|rating_desc|orders_desc&gender=male|female
+
+    // 服务详情（✅ 后端已测试通过 - Page12_ServiceDetailTest.java）
+    SERVICE_DETAIL: '/xypai-app-bff/api/service/detail', // GET ?serviceId=xxx&userId=xxx - 获取服务详情
+    SERVICE_REVIEWS: '/xypai-app-bff/api/service/reviews', // GET ?serviceId=xxx&pageNum=1&pageSize=10&filterBy=excellent|negative - 获取服务评价列表
+  },
+
+  // 通用服务（xypai-common模块）- 媒体上传、位置服务
+  // 测试文件参考: Page02_PublishFeedTest.java
+  COMMON: {
+    // 媒体上传（✅ 后端已测试）
+    MEDIA_UPLOAD: '/xypai-common/api/v1/media/upload',      // POST FormData: file, type(image|video)
+
+    // 位置服务（✅ 后端已测试）
+    LOCATION_NEARBY: '/xypai-common/api/v1/location/nearby',   // GET ?latitude=x&longitude=y&radius=5
+    LOCATION_SEARCH: '/xypai-common/api/v1/location/search',   // GET ?keyword=xxx&page=1&pageSize=20
+  },
+
+  // 话题相关（xypai-content模块）
+  // 测试文件参考: Page02_PublishFeedTest.java
+  TOPIC: {
+    HOT: '/xypai-content/api/v1/content/topics/hot',         // GET ?page=1&pageSize=20
+    SEARCH: '/xypai-content/api/v1/content/topics/search',   // GET ?keyword=xxx&page=1&pageSize=20
+  },
+
   // 配置相关（系统配置 - ruoyi-system模块）
   CONFIG: {
     COMPONENT: '/system/api/v1/config/components/:id',
@@ -307,35 +411,27 @@ export const API_ENDPOINTS = {
   },
   
   // 认证相关（xypai-auth模块）- 完全对接后端API
+  // ⚠️ 所有接口带 /api 前缀，通过Gateway访问
   AUTH: {
     // 登录相关
-    LOGIN: '/xypai-auth/api/v1/auth/login',                     // 密码登录
-    LOGIN_SMS: '/xypai-auth/api/v1/auth/login/sms',            // 短信登录
-    LOGOUT: '/xypai-auth/api/v1/auth/logout',                   // 登出
-    REFRESH: '/xypai-auth/api/v1/auth/refresh',                 // 刷新令牌
-    
-    // 验证相关
-    VERIFY: '/xypai-auth/api/v1/auth/verify',                   // 验证令牌
-    HEARTBEAT: '/xypai-auth/api/v1/auth/heartbeat',            // 心跳保活
-    HEALTH: '/xypai-auth/api/v1/auth/health',                   // 健康检查
-    
-    // 短信相关
-    SMS_SEND: '/xypai-auth/api/v1/auth/sms/send',              // 发送短信验证码
-    SMS_VERIFY: '/xypai-auth/api/v1/auth/sms/verify',          // 验证短信验证码
-    
-    // 会话管理
-    SESSIONS: '/xypai-auth/api/v1/auth/sessions',               // 查询会话列表
-    SESSION_CURRENT: '/xypai-auth/api/v1/auth/session/current', // 查询当前会话
-    SESSION_COUNT: '/xypai-auth/api/v1/auth/sessions/count',    // 统计会话数量
-    SESSION_REVOKE: '/xypai-auth/api/v1/auth/session/:sessionId', // 注销会话
-    SESSION_REVOKE_OTHERS: '/xypai-auth/api/v1/auth/sessions/revoke-others', // 注销其他会话
-    
-    // 设备管理
-    DEVICES: '/xypai-auth/api/v1/auth/devices',                 // 查询设备列表
-    DEVICES_TRUSTED: '/xypai-auth/api/v1/auth/devices/trusted', // 查询信任设备
-    DEVICE_TRUST: '/xypai-auth/api/v1/auth/device/:deviceId/trust', // 信任设备
-    DEVICE_REVOKE: '/xypai-auth/api/v1/auth/device/:deviceId',  // 注销设备
-    DEVICE_DELETE: '/xypai-auth/api/v1/auth/device/:deviceId/delete', // 删除设备
+    LOGIN_PASSWORD: '/xypai-auth/api/auth/login/password',   // 密码登录
+    LOGIN_SMS: '/xypai-auth/api/auth/login/sms',             // SMS验证码登录（自动注册）
+    LOGOUT: '/xypai-auth/api/auth/logout',                   // 登出
+    REFRESH: '/xypai-auth/api/auth/token/refresh',           // 刷新Token
+
+    // 短信验证码相关
+    SMS_SEND: '/xypai-auth/api/auth/sms/send',               // 发送验证码（LOGIN/RESET_PASSWORD）
+
+    // 密码重置相关
+    PASSWORD_RESET_VERIFY: '/xypai-auth/api/auth/password/reset/verify',   // 验证重置密码验证码
+    PASSWORD_RESET_CONFIRM: '/xypai-auth/api/auth/password/reset/confirm', // 重置密码
+
+    // 以下接口暂未实现，保留配置供后续使用
+    // VERIFY: '/xypai-auth/api/auth/verify',                 // 验证令牌（未实现）
+    // HEARTBEAT: '/xypai-auth/api/auth/heartbeat',           // 心跳保活（未实现）
+    // HEALTH: '/xypai-auth/api/auth/health',                 // 健康检查（未实现）
+    // SMS_VERIFY: '/xypai-auth/api/auth/sms/verify',         // 单独验证验证码（未实现）
+    // USER_EXISTS: '/xypai-auth/api/auth/user/exists',       // 检查用户是否存在（未实现）
   },
   
   // 上传相关（resource模块）

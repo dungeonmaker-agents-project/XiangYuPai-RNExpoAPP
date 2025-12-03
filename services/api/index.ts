@@ -15,12 +15,21 @@ export { API_CONFIG, API_ENDPOINTS, buildQueryParams, buildURL, getBaseURL } fro
 
 // 导出所有API服务实例
 export { authApi } from './authApi';
+export { bffApi } from './bffApi';
+export { commonApi } from './commonApi';
 export { discoveryApi } from './discoveryApi';
+export { feedApi } from './feedApi';
+export { filterApi } from './filterApi';
 export { homepageApi } from './homepageApi';
 export { locationApi } from './locationApi';
 export { profileApi } from './profileApi';
+export { publishApi } from './publishApi';
+export { relationApi } from './relationApi';
+export { reportApi } from './reportApi';
 export { serviceApi } from './serviceApi';
+export { skillApi } from './skillApi';
 export { userApi } from './userApi';
+export * as activityApi from './activityApi';
 
 // 导出API响应和错误类型
 export { ERROR_TYPES, HTTP_STATUS } from './client';
@@ -63,16 +72,276 @@ export type {
   AddCommentRequest, CommentItem, CommentListParams, FeedDetail, FeedListItem, FeedListParams, FeedListResponse, InteractionRequest
 } from './discoveryApi';
 
+// 导出Feed API类型（新增）
+export type {
+  FeedItem,
+  FeedDetail as FeedDetailNew,
+  FeedListResponse as FeedListResponseNew,
+  FeedTabType,
+  FeedListQueryParams,
+  FeedPublishParams,
+  FeedUserInfo,
+  MediaItem,
+  TopicItem,
+  InteractionParams,
+  InteractionResult,
+  ShareParams,
+  // 评论相关类型
+  CommentItem as FeedCommentItem,
+  CommentUserInfo as FeedCommentUserInfo,
+  CommentListResponse as FeedCommentListResponse,
+  CommentPublishParams as FeedCommentPublishParams,
+  // P0 新增类型 - Profile页面Tab数据
+  UserFeedListParams,
+  MyCollectionParams,
+  CollectionItem,
+  CollectionListResponse,
+  // P1 新增类型 - 话题动态
+  TopicFeedParams,
+  // P2 新增类型 - 评论置顶
+  PinCommentResult,
+} from './feedApi';
+
+// 导出Relation API类型（新增）
+export type {
+  RelationStatus,
+  UserRelationItem,
+  FollowResponse,
+  PageQuery,
+  PageResponse,
+  ReportParams,
+} from './relationApi';
+
+// 导出Filter API类型（新增）
+export type {
+  FilterType,
+  AgeRangeConfig,
+  GenderOption,
+  StatusOption,
+  SkillOption,
+  PriceOption,
+  PositionOption,
+  TagOption,
+  FilterConfig,
+  FilterConditions,
+  FilterApplyParams,
+  UserCardInfo,
+  FilterApplyResponse,
+} from './filterApi';
+
+// 导出BFF API类型（新增）
+export type {
+  HomeFeedType,
+  HomeFeedQueryParams,
+  BffUserCard,
+  HomeFeedResponse,
+  FilterConfigItem,
+  FilterConfigResponse,
+  FilterApplyParams as BffFilterApplyParams,
+  // 限时专享类型
+  LimitedTimeSortBy,
+  LimitedTimeGender,
+  LimitedTimeQueryParams,
+  LimitedTimePrice,
+  LimitedTimeSkill,
+  LimitedTimeUserCard,
+  LimitedTimeFilterOption,
+  LimitedTimeFilters,
+  LimitedTimeResponse,
+  // 搜索相关类型
+  SearchHistoryItem,
+  HotKeyword,
+  SearchInitResponse,
+  SearchSuggestionType,
+  SearchSuggestion,
+  SearchSuggestResponse,
+  DeleteHistoryParams,
+  DeleteHistoryResponse,
+  SearchType,
+  SearchParams,
+  SearchTab,
+  SearchPostAuthor,
+  SearchPost,
+  SearchUserBrief,
+  SearchAllItem,
+  SearchUserItem,
+  SearchOrderTag,
+  SearchOrderPrice,
+  SearchOrderSkill,
+  SearchOrderItem,
+  SearchTopicStats,
+  SearchTopicItem,
+  SearchResponse,
+  SearchTabResponse,
+  // 组局/活动类型（BFF）
+  ActivitySortBy,
+  ActivityGender,
+  ActivityStatus as BffActivityStatus,
+  ActivityType as BffActivityType,
+  ActivityListParams as BffActivityListParams,
+  ActivityOrganizer,
+  ActivityTag as BffActivityTag,
+  ActivityPrice,
+  ActivitySchedule,
+  ActivityLocation,
+  ActivityParticipantsInfo,
+  ActivityListItem as BffActivityListItem,
+  ActivityFilterOption,
+  ActivityListFilters,
+  ActivityListResponse as BffActivityListResponse,
+  ActivityParticipant,
+  ActivityDetailParticipants,
+  ActivityUserStatus,
+  ActivityDetail as BffActivityDetail,
+  ActivityRegisterParams,
+  ActivityRegisterResponse,
+  ActivityCancelParams,
+  ActivityCancelResponse,
+  ActivityRefundInfo,
+  // 发布组局类型（BFF）
+  ActivityTypeOption,
+  PriceUnitOption,
+  MemberCountOption,
+  PlatformFeeRule,
+  DepositRule,
+  ActivityPublishConfigResponse,
+  ActivityPublishSchedule,
+  ActivityPublishLocation,
+  ActivityPublishPrice,
+  ActivityPublishRequest,
+  ActivityPublishPaymentInfo,
+  ActivityPublishResponse,
+  ActivityPublishPayRequest,
+  ActivityPublishPayResponse,
+  // 服务列表/详情类型（BFF）
+  ServiceTabType,
+  ServiceSortBy,
+  ServiceListParams,
+  ServiceProvider,
+  ServiceSkillInfo,
+  ServicePriceInfo,
+  ServiceStatsInfo,
+  ServiceListItem,
+  ServiceTabOption,
+  ServiceFilterOption,
+  ServiceListFilters,
+  ServiceListResponse,
+  ServiceDetailParams,
+  ServiceReviewsSummary,
+  ServiceReviewTag,
+  ServiceReviewItem,
+  ServiceReviewsInfo,
+  ServiceDetailResponse,
+  ServiceReviewFilterBy,
+  ServiceReviewsParams,
+  ServiceReviewsResponse,
+} from './bffApi';
+
+// 导出Common API类型（新增）
+export type {
+  MediaType,
+  MediaUploadParams,
+  MediaUploadResponse,
+  LocationInfo as CommonLocationInfo,
+  LocationListResponse,
+  NearbyLocationParams,
+  LocationSearchParams,
+} from './commonApi';
+
+// 导出Topic API类型（新增）
+export type {
+  TopicDetail,
+  TopicListResponse,
+} from './feedApi';
+
 // 导出Profile API类型
 export type {
+  // 基础类型
   OccupationDictVO,
   ProfileCompletenessVO,
   UserOccupationUpdateDTO,
   UserOccupationVO,
   UserProfileUpdateDTO,
   UserProfileVO,
-  UserStatsVO
+  UserStatsVO,
+  // 页面专用类型
+  ProfilePageStats,
+  PrivacySettings,
+  ProfileEditData,
+  ProfileHeaderData,
+  OtherUserProfileData,
+  SkillBrief,
+  ProfileInfoData,
+  Certification,
+  PageQuery as ProfilePageQuery,
+  AvatarUploadResponse,
 } from './profileApi';
+
+// 导出Report API类型
+export type {
+  ReportType,
+  ReportTargetType,
+  ReportSubmitDTO,
+  ReportResultVO,
+} from './reportApi';
+
+// 导出Publish API类型
+export type {
+  Topic as PublishTopic,
+  TopicCategory as PublishTopicCategory,
+  Location as PublishLocation,
+  MediaItem as PublishMediaItem,
+  PublishFeedDTO,
+  Draft as PublishDraft,
+  PublishConfig,
+} from './publishApi';
+
+// 导出Skill API类型
+export type {
+  SkillType,
+  PriceUnit,
+  AvailableTime,
+  SkillLocation,
+  CreateOnlineSkillParams,
+  CreateOfflineSkillParams,
+  SkillListItem,
+  SkillDetail,
+  SkillListResponse,
+  NearbySkillParams,
+  SkillListParams,
+} from './skillApi';
+
+// 导出Activity API类型
+export type {
+  ActivityListParams,
+  ActivityListResponse,
+  ActivityDetail,
+  ActivityListItem,
+  ActivityType,
+  ActivityStatus,
+  Organizer,
+  ActivityTag,
+  PriceInfo,
+  Schedule,
+  Location,
+  Participants,
+  ParticipantItem,
+  FilterConfig,
+  ActivityFilters,
+  PublishConfig,
+  PublishActivityParams,
+  PublishActivityResponse,
+  RegisterParams,
+  RegisterResponse,
+  ApproveRegistrationParams,
+  CancelRegistrationResponse,
+  ShareResponse,
+  UploadImageResponse,
+  PaymentInfo,
+} from './types/activity';
+
+// 导出Activity API新增类型（P1/P2）
+export type { ActivityTypeItem } from './activityApi';
 
 // API工具函数
 export const clearAllCache = () => {

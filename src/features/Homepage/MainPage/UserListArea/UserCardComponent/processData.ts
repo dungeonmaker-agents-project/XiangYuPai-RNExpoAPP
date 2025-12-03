@@ -18,12 +18,15 @@ export const processUserData = (user: UserCard): UserCard => {
     bio: user.bio || '这个家伙很神秘，没有填写简介',
     // 确保服务列表不为空
     services: user.services.length > 0 ? user.services : ['模特'],
-    // 确保照片列表不为空
-    photos: user.photos.length > 0 ? user.photos : [
+    // 确保照片列表不为空（兜底用）
+    photos: user.photos?.length > 0 ? user.photos : [
       'https://picsum.photos/200/200?random=1',
       'https://picsum.photos/200/200?random=2',
       'https://picsum.photos/200/200?random=3',
     ],
+    // 保留真实的 feeds 数据
+    feeds: user.feeds || [],
+    feedCount: user.feedCount || 0,
   };
 };
 

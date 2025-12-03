@@ -10,13 +10,18 @@ import type { UserCard } from '../types';
  * 对用户列表进行展示优化
  */
 export const processListData = (users: UserCard[]): UserCard[] => {
+  // 安全处理：确保 users 是数组
+  if (!users || !Array.isArray(users)) {
+    return [];
+  }
+
   return users.map((user, index) => ({
     ...user,
     // 添加列表索引
     listIndex: index,
     // 确保必要字段有默认值
     avatar: user.avatar || `https://picsum.photos/100/100?random=${index}`,
-    photos: user.photos.length > 0 ? user.photos : [
+    photos: user.photos?.length > 0 ? user.photos : [
       `https://picsum.photos/200/200?random=${index * 10 + 1}`,
       `https://picsum.photos/200/200?random=${index * 10 + 2}`,
       `https://picsum.photos/200/200?random=${index * 10 + 3}`,

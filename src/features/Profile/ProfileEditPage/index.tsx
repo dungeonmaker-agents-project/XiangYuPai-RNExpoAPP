@@ -1,39 +1,45 @@
 // #region 1. File Banner & TOC
 /**
  * ProfileEditPage - 个人资料编辑页
- * 
+ *
  * 功能：
+ * - 从真实 API 加载用户资料
  * - 所有字段编辑入口
  * - 头像管理
  * - 表单验证
- * - 使用假数据（前端模式）
+ * - 职业多选支持
+ *
+ * @author XyPai Team
+ * @since 2025-12-02
  */
 // #endregion
 
 // #region 2. Imports
-import { useProfileStore } from '@/stores/profileStore';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import {
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import AvatarPicker from './AvatarPicker';
-import BottomPickerModal, { type PickerOption } from './BottomPickerModal';
+import BottomPickerModal from './BottomPickerModal';
+import { useProfileEditPage } from './useProfileEditPage';
 // #endregion
 
-// #region 3-7. Types, Constants, Utils, State & Logic
+// #region 3. Types & Interfaces
 interface ProfileEditPageProps {
   userId?: string;
 }
+// #endregion
 
+// #region 4. Constants
 const COLORS = {
   WHITE: '#FFFFFF',
   BG_GRAY: '#F5F5F5',
@@ -41,242 +47,120 @@ const COLORS = {
   TEXT_SECONDARY: '#999999',
   BORDER: '#E5E5E5',
   PRIMARY: '#9C27B0',
+  ERROR: '#FF5252',
 } as const;
+// #endregion
 
-interface EditItem {
-  id: string;
-  label: string;
-  value: string;
-  type?: 'text' | 'select' | 'date';
-  placeholder?: string;
-}
+// #region 5. Sub-components
 
-// 选项配置
-const GENDER_OPTIONS: PickerOption[] = [
-  { label: '男', value: 'male' },
-  { label: '女', value: 'female' },
-];
+/**
+ * 加载状态组件
+ */
+const LoadingView: React.FC = () => (
+  <View style={styles.centerContainer}>
+    <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+    <Text style={styles.loadingText}>加载中...</Text>
+  </View>
+);
 
-const HEIGHT_OPTIONS: PickerOption[] = Array.from({ length: 71 }, (_, i) => {
-  const height = 150 + i;
-  return { label: `${height}cm`, value: height };
-});
+/**
+ * 错误状态组件
+ */
+const ErrorView: React.FC<{ message: string; onRetry: () => void }> = ({
+  message,
+  onRetry,
+}) => (
+  <View style={styles.centerContainer}>
+    <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
+    <Text style={styles.errorText}>{message}</Text>
+    <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+      <Text style={styles.retryButtonText}>重试</Text>
+    </TouchableOpacity>
+  </View>
+);
 
-const WEIGHT_OPTIONS: PickerOption[] = Array.from({ length: 91 }, (_, i) => {
-  const weight = 40 + i;
-  return { label: `${weight}kg`, value: weight };
-});
-
-const useProfileEditLogic = () => {
-  const router = useRouter();
-  const currentProfile = useProfileStore(state => state.currentProfile);
-  const updateUserProfile = useProfileStore(state => state.updateUserProfile);
-  
-  // 当前头像URI
-  const [avatarUri, setAvatarUri] = useState(currentProfile?.avatar || 'https://via.placeholder.com/80');
-  
-  // 底部弹窗状态
-  const [pickerVisible, setPickerVisible] = useState(false);
-  const [pickerTitle, setPickerTitle] = useState('');
-  const [pickerOptions, setPickerOptions] = useState<PickerOption[]>([]);
-  const [pickerField, setPickerField] = useState('');
-  const [pickerValue, setPickerValue] = useState<string | number>();
-  
-  // 编辑项列表（使用假数据）- 初始化
-  const getEditItems = useCallback((): EditItem[] => {
-    // 职业显示：如果有多个，显示为"职业1, 职业2"
-    const occupationValue = currentProfile?.occupations && currentProfile.occupations.length > 0
-      ? currentProfile.occupations.join(', ')
-      : (currentProfile?.occupation || '暂未填写');
-    
-    // 性别显示
-    const genderValue = currentProfile?.gender === 'male' ? '男' : 
-                       currentProfile?.gender === 'female' ? '女' : '暂未填写';
-    
-    // 身高显示
-    const heightValue = currentProfile?.height ? `${currentProfile.height}cm` : '暂未填写';
-    
-    // 体重显示
-    const weightValue = currentProfile?.weight ? `${currentProfile.weight}kg` : '暂未填写';
-    
-    return [
-      { id: 'nickname', label: '昵称', value: currentProfile?.nickname || '门前对联一副', type: 'text' },
-      { id: 'gender', label: '性别', value: genderValue, type: 'select' },
-      { id: 'intro', label: '个人介绍', value: currentProfile?.intro || '这个人很懒惰，还没有个人简介', type: 'text' },
-      { id: 'birthday', label: '生日', value: '1999-09-23', type: 'date' },
-      { id: 'height', label: '身高', value: heightValue, type: 'select' },
-      { id: 'weight', label: '体重', value: weightValue, type: 'select' },
-      { id: 'occupation', label: '职业', value: occupationValue, type: 'text' },
-      { id: 'skills', label: '技能', value: '点击添加', type: 'text' },
-      { id: 'wechat', label: '微信', value: currentProfile?.wechat || '213438647932', type: 'text' },
-      { id: 'phone', label: '手机号', value: '暂未填写', type: 'text' },
-    ];
-  }, [currentProfile]);
-  
-  const [editItems, setEditItems] = useState<EditItem[]>(getEditItems());
-  
-  // 页面获得焦点时更新数据
-  useFocusEffect(
-    useCallback(() => {
-      setEditItems(getEditItems());
-      setAvatarUri(currentProfile?.avatar || 'https://via.placeholder.com/80');
-    }, [currentProfile, getEditItems])
+/**
+ * 保存中指示器
+ */
+const SavingOverlay: React.FC<{ visible: boolean }> = ({ visible }) => {
+  if (!visible) return null;
+  return (
+    <View style={styles.savingOverlay}>
+      <View style={styles.savingBox}>
+        <ActivityIndicator size="small" color={COLORS.WHITE} />
+        <Text style={styles.savingText}>保存中...</Text>
+      </View>
+    </View>
   );
-  
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    }
-  };
-  
-  const handleEditItem = (id: string) => {
-    const item = editItems.find(i => i.id === id);
-    if (!item) return;
-    
-    // 职业选择页
-    if (id === 'occupation') {
-      router.push({
-        pathname: '/profile/select-occupation',
-        params: {
-          currentOccupations: JSON.stringify(currentProfile?.occupations || []),
-        },
-      });
-      return;
-    }
-    
-    // 微信编辑页
-    if (id === 'wechat') {
-      router.push({
-        pathname: '/profile/edit-wechat',
-        params: {
-          currentWechat: currentProfile?.wechat || '',
-          wechatLocked: String(currentProfile?.wechatLocked || false),
-        },
-      });
-      return;
-    }
-    
-    // 技能编辑页
-    if (id === 'skills') {
-      router.push('/profile/skills-edit');
-      return;
-    }
-    
-    // 性别选择（底部弹窗）
-    if (id === 'gender') {
-      setPickerField('gender');
-      setPickerTitle('性别');
-      setPickerOptions(GENDER_OPTIONS);
-      setPickerValue(currentProfile?.gender);
-      setPickerVisible(true);
-      return;
-    }
-    
-    // 身高选择（底部弹窗）
-    if (id === 'height') {
-      setPickerField('height');
-      setPickerTitle('身高');
-      setPickerOptions(HEIGHT_OPTIONS);
-      setPickerValue(currentProfile?.height);
-      setPickerVisible(true);
-      return;
-    }
-    
-    // 体重选择（底部弹窗）
-    if (id === 'weight') {
-      setPickerField('weight');
-      setPickerTitle('体重');
-      setPickerOptions(WEIGHT_OPTIONS);
-      setPickerValue(currentProfile?.weight);
-      setPickerVisible(true);
-      return;
-    }
-    
-    // 可以跳转到文本编辑页的字段
-    const textEditableFields = ['nickname', 'intro'];
-    
-    if (textEditableFields.includes(id)) {
-      // 跳转到文本编辑页
-      router.push({
-        pathname: '/profile/edit-field',
-        params: {
-          fieldKey: item.id,
-          fieldLabel: item.label,
-          fieldValue: item.value,
-        },
-      });
-    } else {
-      // 其他类型暂时显示提示
-      Alert.alert(
-        `编辑${item.label}`,
-        `当前值：${item.value}\n\n💡 开发提示：${item.label}编辑功能待实现`,
-        [{ text: '确定' }]
-      );
-    }
-  };
-  
-  // 处理头像变更
-  const handleAvatarChange = (uri: string) => {
-    console.log('💾 更新头像到Store');
-    setAvatarUri(uri);
-    // 更新到ProfileStore（假数据模式）
-    updateUserProfile({ avatar: uri });
-  };
-  
-  // 处理底部弹窗选择
-  const handlePickerSelect = (value: string | number) => {
-    console.log(`💾 更新${pickerField}（假数据模式）`, value);
-    
-    // 更新到Store
-    updateUserProfile({ [pickerField]: value });
-    
-    // 刷新列表
-    setEditItems(getEditItems());
-  };
-  
-  const handlePickerCancel = () => {
-    setPickerVisible(false);
-  };
-  
-  return {
-    editItems,
-    currentProfile,
+};
+
+// #endregion
+
+// #region 6. Main Component
+const ProfileEditPage: React.FC<ProfileEditPageProps> = ({ userId }) => {
+  const {
+    // 状态
+    profile,
     avatarUri,
+    isLoading,
+    isRefreshing,
+    isSaving,
+    error,
+    // 编辑项
+    editItems,
+    // 事件处理
     handleBack,
     handleEditItem,
     handleAvatarChange,
-    // 底部弹窗相关
+    // 底部弹窗
     pickerVisible,
     pickerTitle,
     pickerOptions,
     pickerValue,
     handlePickerSelect,
     handlePickerCancel,
-  };
-};
-// #endregion
+    // 数据操作
+    loadProfile,
+  } = useProfileEditPage();
 
-// #region 8. UI Components & Rendering
-const ProfileEditPage: React.FC<ProfileEditPageProps> = ({ userId }) => {
-  const { 
-    editItems, 
-    currentProfile, 
-    avatarUri, 
-    handleBack, 
-    handleEditItem, 
-    handleAvatarChange,
-    pickerVisible,
-    pickerTitle,
-    pickerOptions,
-    pickerValue,
-    handlePickerSelect,
-    handlePickerCancel,
-  } = useProfileEditLogic();
-  
+  // 加载状态
+  if (isLoading && !profile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.WHITE} />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={COLORS.TEXT_PRIMARY} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>个人资料</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <LoadingView />
+      </SafeAreaView>
+    );
+  }
+
+  // 错误状态
+  if (error && !profile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.WHITE} />
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={24} color={COLORS.TEXT_PRIMARY} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>个人资料</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <ErrorView message={error} onRetry={loadProfile} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.WHITE} />
-      
+
       {/* 顶部导航栏 */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -285,9 +169,20 @@ const ProfileEditPage: React.FC<ProfileEditPageProps> = ({ userId }) => {
         <Text style={styles.headerTitle}>个人资料</Text>
         <View style={styles.placeholder} />
       </View>
-      
+
       {/* 编辑列表 */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={loadProfile}
+            colors={[COLORS.PRIMARY]}
+            tintColor={COLORS.PRIMARY}
+          />
+        }
+      >
         {/* 头像编辑项（特殊处理） */}
         <View style={[styles.editItem, styles.firstItem]}>
           <View style={styles.editItemLeft}>
@@ -298,7 +193,7 @@ const ProfileEditPage: React.FC<ProfileEditPageProps> = ({ userId }) => {
             />
           </View>
         </View>
-        
+
         {/* 其他编辑项 */}
         {editItems.map((item, index) => (
           <TouchableOpacity
@@ -312,27 +207,29 @@ const ProfileEditPage: React.FC<ProfileEditPageProps> = ({ userId }) => {
           >
             <View style={styles.editItemLeft}>
               <Text style={styles.editLabel}>{item.label}</Text>
-              <Text 
+              <Text
                 style={[
                   styles.editValue,
-                  item.value === '暂未填写' && styles.placeholderText
+                  (item.value === '暂未填写' || item.value === '暂未选择') &&
+                    styles.placeholderText,
                 ]}
                 numberOfLines={1}
               >
                 {item.value}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={COLORS.TEXT_SECONDARY} />
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={COLORS.TEXT_SECONDARY}
+            />
           </TouchableOpacity>
         ))}
-        
-        {/* 底部提示 */}
-        <View style={styles.tipContainer}>
-          <Text style={styles.tipText}>💡 当前为前端假数据模式</Text>
-          <Text style={styles.tipSubtext}>点击编辑项查看说明</Text>
-        </View>
+
+        {/* 底部间距 */}
+        <View style={styles.bottomSpacer} />
       </ScrollView>
-      
+
       {/* 底部选择弹窗 */}
       <BottomPickerModal
         visible={pickerVisible}
@@ -342,12 +239,15 @@ const ProfileEditPage: React.FC<ProfileEditPageProps> = ({ userId }) => {
         onSelect={handlePickerSelect}
         onCancel={handlePickerCancel}
       />
+
+      {/* 保存中遮罩 */}
+      <SavingOverlay visible={isSaving} />
     </SafeAreaView>
   );
 };
 // #endregion
 
-// #region 9. Exports & Styles
+// #region 7. Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -415,27 +315,63 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: COLORS.TEXT_SECONDARY,
   },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.BORDER,
+  bottomSpacer: {
+    height: 24,
   },
-  tipContainer: {
-    padding: 24,
+  // 加载状态
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 24,
   },
-  tipText: {
+  loadingText: {
+    marginTop: 12,
     fontSize: 14,
     color: COLORS.TEXT_SECONDARY,
-    marginBottom: 4,
   },
-  tipSubtext: {
-    fontSize: 12,
+  // 错误状态
+  errorText: {
+    marginTop: 12,
+    fontSize: 14,
     color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: COLORS.WHITE,
+    fontWeight: '500',
+  },
+  // 保存中遮罩
+  savingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  savingBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  savingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: COLORS.WHITE,
   },
 });
-
-export default ProfileEditPage;
 // #endregion
 
+// #region 8. Exports
+export default ProfileEditPage;
+// #endregion

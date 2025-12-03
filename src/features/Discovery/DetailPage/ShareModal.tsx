@@ -1,14 +1,19 @@
 /**
- * ShareModal - 分享弹窗组件
- * 
- * 功能：
- * - 多种分享方式
- * - 底部弹出动画
- * - 点击遮罩关闭
+ * ShareModal - 分享面板组件
+ *
+ * 根据 动态详情页面_结构文档.md 规范实现:
+ * - 标题: "分享/转发"
+ * - 5个选项: 好友(紫色) | 微信(绿色) | QQ(蓝色) | 微博(红色) | 举报(灰色)
+ * - 布局: flex-row 均分, gap:20px, padding:20px 16px 40px
+ * - 图标尺寸: 56x56px 圆形
+ *
+ * 数据模型:
+ * ShareItem: { shareId, shareName, shareIcon, shareType(friend|wechat|qq|weibo|report) }
  */
 
 import React from 'react';
 import {
+    Alert,
     Animated,
     Modal,
     Platform,
@@ -22,22 +27,64 @@ import {
 const COLORS = {
   OVERLAY: 'rgba(0, 0, 0, 0.5)',
   CARD_BACKGROUND: '#FFFFFF',
-  TEXT_PRIMARY: '#000000',
+  TEXT_PRIMARY: '#333333',
   TEXT_SECONDARY: '#666666',
   BORDER: '#E5E5E5',
-  WECHAT: '#07C160',
-  QQ: '#12B7F5',
-  WEIBO: '#E6162D',
-  COPY: '#8A2BE2',
+  // 分享渠道颜色
+  FRIEND: '#8A2BE2',      // 好友 - 紫色
+  WECHAT: '#07C160',      // 微信 - 绿色
+  QQ: '#12B7F5',          // QQ - 蓝色
+  WEIBO: '#E6162D',       // 微博 - 红色
+  REPORT: '#999999',      // 举报 - 灰色
 } as const;
 
-interface ShareOption {
-  id: string;
-  name: string;
-  icon: string;
+// 分享选项数据模型
+interface ShareItem {
+  shareId: string;
+  shareName: string;
+  shareIcon: string;
+  shareType: 'friend' | 'wechat' | 'qq' | 'weibo' | 'report';
   color: string;
-  onPress: () => void;
 }
+
+// 分享选项配置
+const SHARE_OPTIONS: ShareItem[] = [
+  {
+    shareId: 'friend',
+    shareName: '好友',
+    shareIcon: '👤',
+    shareType: 'friend',
+    color: COLORS.FRIEND,
+  },
+  {
+    shareId: 'wechat',
+    shareName: '微信',
+    shareIcon: '💬',
+    shareType: 'wechat',
+    color: COLORS.WECHAT,
+  },
+  {
+    shareId: 'qq',
+    shareName: 'QQ',
+    shareIcon: '🐧',
+    shareType: 'qq',
+    color: COLORS.QQ,
+  },
+  {
+    shareId: 'weibo',
+    shareName: '微博',
+    shareIcon: '📱',
+    shareType: 'weibo',
+    color: COLORS.WEIBO,
+  },
+  {
+    shareId: 'report',
+    shareName: '举报',
+    shareIcon: '⚠️',
+    shareType: 'report',
+    color: COLORS.REPORT,
+  },
+];
 
 interface ShareModalProps {
   visible: boolean;
@@ -46,6 +93,7 @@ interface ShareModalProps {
   feedTitle?: string;
   feedContent?: string;
   onReport?: () => void;
+  onShare?: (channel: 'wechat' | 'moments' | 'qq' | 'copy_link') => void;
 }
 
 export default function ShareModal({
@@ -55,6 +103,7 @@ export default function ShareModal({
   feedTitle,
   feedContent,
   onReport,
+  onShare,
 }: ShareModalProps) {
   const [slideAnim] = React.useState(new Animated.Value(0));
 
@@ -75,85 +124,48 @@ export default function ShareModal({
     }
   }, [visible]);
 
-  const handleShareToWechat = () => {
-    console.log('[ShareModal] 分享到微信', { feedId });
-    // TODO: 调用微信分享SDK
-    alert('分享到微信功能开发中...');
-    onClose();
-  };
+  const handleShareItem = async (item: ShareItem) => {
+    console.log('[ShareModal] 点击分享选项:', item.shareType, { feedId });
 
-  const handleShareToQQ = () => {
-    console.log('[ShareModal] 分享到QQ', { feedId });
-    // TODO: 调用QQ分享SDK
-    alert('分享到QQ功能开发中...');
-    onClose();
-  };
+    switch (item.shareType) {
+      case 'friend':
+        // 应用内好友分享
+        onShare?.('wechat');
+        Alert.alert('提示', '分享给好友功能开发中...');
+        onClose();
+        break;
 
-  const handleShareToWeibo = () => {
-    console.log('[ShareModal] 分享到微博', { feedId });
-    // TODO: 调用微博分享SDK
-    alert('分享到微博功能开发中...');
-    onClose();
-  };
+      case 'wechat':
+        onShare?.('wechat');
+        Alert.alert('提示', '分享到微信功能开发中...');
+        onClose();
+        break;
 
-  const handleCopyLink = async () => {
-    console.log('[ShareModal] 复制链接', { feedId });
-    // TODO: 复制链接到剪贴板
-    // 使用 Expo Clipboard
-    try {
-      // const link = `https://xiangyupai.com/feed/${feedId}`;
-      // await Clipboard.setStringAsync(link);
-      alert('链接已复制到剪贴板');
-      onClose();
-    } catch (error) {
-      console.error('复制失败', error);
-      alert('复制失败，请重试');
+      case 'qq':
+        onShare?.('qq');
+        Alert.alert('提示', '分享到QQ功能开发中...');
+        onClose();
+        break;
+
+      case 'weibo':
+        onShare?.('moments');
+        Alert.alert('提示', '分享到微博功能开发中...');
+        onClose();
+        break;
+
+      case 'report':
+        onClose();
+        // 延迟打开举报弹窗，等分享面板关闭动画完成
+        setTimeout(() => {
+          onReport?.();
+        }, 300);
+        break;
     }
   };
 
-  const handleReport = () => {
-    console.log('[ShareModal] 打开举报弹窗', { feedId });
-    onClose();
-    // 延迟一下，等分享弹窗关闭动画完成后再打开举报弹窗
-    setTimeout(() => {
-      onReport?.();
-    }, 300);
-  };
-
-  const shareOptions: ShareOption[] = [
-    {
-      id: 'wechat',
-      name: '微信',
-      icon: '💬',
-      color: COLORS.WECHAT,
-      onPress: handleShareToWechat,
-    },
-    {
-      id: 'qq',
-      name: 'QQ',
-      icon: '🐧',
-      color: COLORS.QQ,
-      onPress: handleShareToQQ,
-    },
-    {
-      id: 'weibo',
-      name: '微博',
-      icon: '📱',
-      color: COLORS.WEIBO,
-      onPress: handleShareToWeibo,
-    },
-    {
-      id: 'copy',
-      name: '复制链接',
-      icon: '🔗',
-      color: COLORS.COPY,
-      onPress: handleCopyLink,
-    },
-  ];
-
   const translateY = slideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [300, 0],
+    outputRange: [400, 0],
   });
 
   return (
@@ -178,46 +190,31 @@ export default function ShareModal({
           ]}
         >
           <TouchableOpacity activeOpacity={1}>
-            {/* 标题栏 */}
+            {/* 拖动指示条 */}
+            <View style={styles.handleBar} />
+
+            {/* 标题 */}
             <View style={styles.header}>
-              <Text style={styles.title}>分享到</Text>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
+              <Text style={styles.headerIcon}>🔄</Text>
+              <Text style={styles.headerTitle}>分享/转发</Text>
             </View>
 
-            {/* 分享选项 */}
-            <View style={styles.optionsContainer}>
-              {shareOptions.map((option) => (
+            {/* 分享选项网格 */}
+            <View style={styles.shareGrid}>
+              {SHARE_OPTIONS.map((item) => (
                 <TouchableOpacity
-                  key={option.id}
-                  style={styles.optionItem}
-                  onPress={option.onPress}
+                  key={item.shareId}
+                  style={styles.shareItem}
+                  onPress={() => handleShareItem(item)}
                   activeOpacity={0.7}
                 >
-                  <View
-                    style={[
-                      styles.optionIcon,
-                      { backgroundColor: option.color },
-                    ]}
-                  >
-                    <Text style={styles.optionIconText}>{option.icon}</Text>
+                  <View style={[styles.shareIconCircle, { backgroundColor: item.color }]}>
+                    <Text style={styles.shareIcon}>{item.shareIcon}</Text>
                   </View>
-                  <Text style={styles.optionName}>{option.name}</Text>
+                  <Text style={styles.shareName}>{item.shareName}</Text>
                 </TouchableOpacity>
               ))}
             </View>
-
-            {/* 举报按钮 */}
-            {onReport && (
-              <TouchableOpacity
-                style={styles.reportButton}
-                onPress={handleReport}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.reportButtonText}>举报</Text>
-              </TouchableOpacity>
-            )}
 
             {/* 取消按钮 */}
             <TouchableOpacity
@@ -242,79 +239,65 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: COLORS.CARD_BACKGROUND,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  handleBar: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.BORDER,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-    position: 'relative',
+    gap: 8,
   },
-  title: {
+  headerIcon: {
+    fontSize: 20,
+  },
+  headerTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.TEXT_PRIMARY,
   },
-  closeButton: {
-    position: 'absolute',
-    right: 20,
-    top: 16,
-    padding: 4,
-  },
-  closeButtonText: {
-    fontSize: 20,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  optionsContainer: {
+  shareGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
-    paddingVertical: 30,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    gap: 20,
   },
-  optionItem: {
+  shareItem: {
     alignItems: 'center',
-    width: 70,
+    width: 56,
+    gap: 8,
   },
-  optionIcon: {
+  shareIconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
-  optionIconText: {
+  shareIcon: {
     fontSize: 28,
   },
-  optionName: {
-    fontSize: 13,
-    color: COLORS.TEXT_SECONDARY,
+  shareName: {
+    fontSize: 12,
+    color: COLORS.TEXT_PRIMARY,
     textAlign: 'center',
   },
-  reportButton: {
-    marginHorizontal: 20,
-    marginTop: 10,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#FFF5F5',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFE5E5',
-  },
-  reportButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#FF4444',
-  },
   cancelButton: {
-    marginHorizontal: 20,
-    marginTop: 10,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
     paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: '#F5F5F5',
@@ -326,4 +309,3 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_PRIMARY,
   },
 });
-

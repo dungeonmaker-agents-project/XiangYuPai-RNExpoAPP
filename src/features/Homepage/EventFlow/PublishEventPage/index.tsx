@@ -17,7 +17,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { PaymentModal } from './components/PaymentModal';
+import { PaymentModal } from './PaymentModal';
 
 // 颜色常量
 const COLORS = {
@@ -32,14 +32,14 @@ const COLORS = {
   ICON_BG: '#F3F4F6',
 } as const;
 
-// 话题图标配置
+// 话题图标配置（带颜色背景）
 const TOPIC_ICONS = [
-  { id: 'restaurant', emoji: '🍽️', label: '饭店' },
-  { id: 'movie', emoji: '🎬', label: '私影' },
-  { id: 'karaoke', emoji: '🎤', label: '台球' },
-  { id: 'game', emoji: '🎮', label: 'K歌' },
-  { id: 'sport', emoji: '🏃', label: '健身' },
-  { id: 'other', emoji: '🔧', label: '陪维' },
+  { id: 'restaurant', emoji: '🍽️', label: '饭店', color: '#FF6B6B' },
+  { id: 'movie', emoji: '🎬', label: '私影', color: '#4ECDC4' },
+  { id: 'karaoke', emoji: '🎤', label: '台球', color: '#FFD93D' },
+  { id: 'game', emoji: '🎮', label: 'K歌', color: '#95E1D3' },
+  { id: 'sport', emoji: '🏃', label: '健身', color: '#F38181' },
+  { id: 'other', emoji: '🔧', label: '陪维', color: '#AA96DA' },
 ];
 
 export default function PublishEventPage() {
@@ -164,18 +164,21 @@ export default function PublishEventPage() {
         >
           {/* 话题选择 */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>活动类型</Text>
+            <Text style={styles.sectionTitle}>发布组局</Text>
             <View style={styles.topicGrid}>
               {TOPIC_ICONS.map((topic) => (
                 <TouchableOpacity
                   key={topic.id}
-                  style={[
-                    styles.topicItem,
-                    selectedTopic === topic.id && styles.topicItemSelected,
-                  ]}
+                  style={styles.topicItem}
                   onPress={() => setSelectedTopic(topic.id)}
                 >
-                  <Text style={styles.topicEmoji}>{topic.emoji}</Text>
+                  <View style={[
+                    styles.topicIconCircle,
+                    { backgroundColor: topic.color },
+                    selectedTopic === topic.id && styles.topicIconSelected,
+                  ]}>
+                    <Text style={styles.topicEmoji}>{topic.emoji}</Text>
+                  </View>
                   <Text style={[
                     styles.topicLabel,
                     selectedTopic === topic.id && styles.topicLabelSelected,
@@ -202,7 +205,10 @@ export default function PublishEventPage() {
           
           {/* 添加正文 */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>添加正文</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>添加正文</Text>
+              <Text style={styles.charCount}>{content.length}/200</Text>
+            </View>
             <TextInput
               style={[styles.input, styles.textArea]}
               placeholder="请输入活动详情"
@@ -211,9 +217,8 @@ export default function PublishEventPage() {
               onChangeText={setContent}
               multiline
               textAlignVertical="top"
-              maxLength={500}
+              maxLength={200}
             />
-            <Text style={styles.charCount}>0/200</Text>
           </View>
           
           {/* 时间 */}
@@ -392,88 +397,109 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.TEXT_PRIMARY,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   sectionLabel: {
     fontSize: 14,
     color: COLORS.TEXT_SECONDARY,
-    marginBottom: 12,
   },
   topicGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -8,
+    gap: 16,
   },
   topicItem: {
-    width: '16.666%',
     alignItems: 'center',
-    paddingVertical: 12,
+    width: 70,
+  },
+  topicIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  topicItemSelected: {
-    backgroundColor: COLORS.ICON_BG,
-    borderRadius: 8,
+  topicIconSelected: {
+    transform: [{ scale: 1.1 }],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   topicEmoji: {
-    fontSize: 32,
-    marginBottom: 4,
+    fontSize: 28,
   },
   topicLabel: {
     fontSize: 12,
     color: COLORS.TEXT_SECONDARY,
+    textAlign: 'center',
   },
   topicLabelSelected: {
     color: COLORS.PRIMARY,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   input: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.TEXT_PRIMARY,
     paddingVertical: 8,
     paddingHorizontal: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
   },
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+    borderWidth: 0,
   },
   charCount: {
     fontSize: 12,
     color: COLORS.TEXT_SECONDARY,
-    textAlign: 'right',
-    marginTop: 8,
   },
   selectRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   selectLabel: {
     fontSize: 16,
     color: COLORS.TEXT_PRIMARY,
+    fontWeight: '500',
   },
   selectRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   selectValue: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.TEXT_SECONDARY,
     marginRight: 8,
   },
   selectArrow: {
-    fontSize: 20,
+    fontSize: 18,
     color: COLORS.TEXT_SECONDARY,
     fontWeight: '300',
   },
   hintSection: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 20,
+    marginTop: 12,
   },
   hintText: {
     fontSize: 12,
     color: COLORS.TEXT_SECONDARY,
-    lineHeight: 18,
+    lineHeight: 20,
+    textAlign: 'center',
   },
   bottomBar: {
     backgroundColor: COLORS.CARD_BG,

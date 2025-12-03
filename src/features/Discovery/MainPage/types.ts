@@ -50,6 +50,7 @@ export interface NavigationAreaProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   onSearchPress: () => void;
+  onPublishPress: () => void;
   style?: StyleProp<ViewStyle>;
 }
 

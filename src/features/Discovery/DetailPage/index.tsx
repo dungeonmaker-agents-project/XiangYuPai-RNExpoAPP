@@ -1,12 +1,23 @@
 /**
  * DetailPage - 动态详情页面
- * 
+ *
  * 功能：
  * - 完整内容展示
  * - 评论系统
  * - 点赞/收藏/分享
- * - 用户信息
+ * - 用户信息（含等级标签）
+ * - 关注/取消关注
  * - 举报功能
+ *
+ * 对接后端API (已测试通过):
+ * - GET /xypai-content/api/v1/content/detail/{feedId} - 获取动态详情
+ * - GET /xypai-content/api/v1/content/comments/{feedId} - 获取评论列表
+ * - POST /xypai-content/api/v1/content/comment - 发布评论
+ * - POST /xypai-content/api/v1/interaction/like - 点赞/取消点赞
+ * - POST /xypai-content/api/v1/interaction/collect - 收藏/取消收藏
+ * - POST /xypai-content/api/v1/interaction/share - 分享
+ * - POST /xypai-content/api/v1/interaction/follow/{userId} - 关注用户
+ * - DELETE /xypai-content/api/v1/interaction/follow/{userId} - 取消关注
  */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,7 +36,9 @@ import {
     View,
 } from 'react-native';
 
-import type { Comment, Feed } from '../types';
+import { feedApi, type CommentItem, type FeedDetail } from '../../../../services/api/feedApi';
+import { useAuthStore } from '@/src/features/AuthModule/stores/authStore';
+import MoreOptionsModal from './MoreOptionsModal';
 import ReportModal from './ReportModal';
 import ShareModal from './ShareModal';
 
@@ -51,16 +64,21 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
   const params = useLocalSearchParams();
   const feedId = propFeedId || (params.feedId as string) || (params.id as string);
 
+  // 获取当前登录用户ID
+  const currentUserInfo = useAuthStore((state) => state.userInfo);
+  const currentUserId = currentUserInfo?.id;
+
   // 状态
   const [loading, setLoading] = useState(true);
-  const [feed, setFeed] = useState<Feed | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [feed, setFeed] = useState<FeedDetail | null>(null);
+  const [comments, setComments] = useState<CommentItem[]>([]);
   const [commentText, setCommentText] = useState('');
   const [isCommenting, setIsCommenting] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showMoreOptionsModal, setShowMoreOptionsModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-  
+
   // Refs
   const imageScrollRef = useRef<ScrollView>(null);
 
@@ -70,114 +88,121 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
   }, [feedId]);
 
   const loadDetail = async () => {
+    if (!feedId) return;
+
     setLoading(true);
     try {
-      // TODO: 调用API获取详情
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 模拟数据
-      setFeed({
-        id: feedId,
-        type: 1, // 动态类型
-        typeDesc: '动态',
-        title: '探店分享：这家咖啡店太绝了！',
-        content: '今天打卡了市中心这家新开的咖啡店，环境超棒！咖啡味道也很正宗，特别推荐他们家的手冲咖啡。店里的装修走的是简约北欧风，非常适合拍照。服务员小姐姐也很热情，还送了小饼干。价格也很亲民，人均30-40就能喝到很不错的咖啡。强烈推荐给喜欢喝咖啡的朋友们！',
-        userId: '1',
-        userInfo: {
-          id: '1',
-          nickname: '咖啡爱好者',
-          avatar: 'https://i.pravatar.cc/150?u=user1',
-          isFollowed: false,
-          tags: ['咖啡达人', '探店博主'],
-        },
-        mediaList: [
-          {
-            id: '1',
-            type: 'image',
-            url: 'https://picsum.photos/400/300?random=1',
-            thumbnailUrl: 'https://picsum.photos/200/150?random=1',
-            width: 400,
-            height: 300,
-          },
-          {
-            id: '2',
-            type: 'image',
-            url: 'https://picsum.photos/400/300?random=2',
-            thumbnailUrl: 'https://picsum.photos/200/150?random=2',
-            width: 400,
-            height: 300,
-          },
-        ],
-        topicList: [
-          { 
-            name: '探店分享', 
-            participantCount: 1250,
-            postCount: 3200,
-            hotIndex: 85,
-            trendChange: 12,
-            createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-          },
-          { 
-            name: '咖啡', 
-            participantCount: 980,
-            postCount: 2500,
-            hotIndex: 78,
-            trendChange: 5,
-            createdAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
-          },
-        ],
-        locationName: '深圳市南山区',
-        locationAddress: '深圳市南山区科技园',
-        likeCount: 128,
-        commentCount: 45,
-        collectCount: 32,
-        shareCount: 15,
-        viewCount: 1250,
-        isLiked: false,
-        isCollected: false,
-        createdAt: Date.now() - 2 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 2 * 60 * 60 * 1000,
-      });
+      console.log('[DetailPage] 开始加载详情, feedId:', feedId);
 
-      setComments([
-        {
-          id: '1',
-          feedId: feedId,
-          userId: '2',
-          userInfo: {
-            id: '2',
-            nickname: '小明',
-            avatar: 'https://i.pravatar.cc/150?u=user2',
-            isFollowed: false,
-          },
-          content: '看起来不错哦，周末去试试！',
-          likeCount: 12,
-          isLiked: false,
-          createdAt: Date.now() - 1 * 60 * 60 * 1000,
-          replyCount: 2,
-          isTop: false,
-          replies: [],
-        },
-        {
-          id: '2',
-          feedId: feedId,
-          userId: '3',
-          userInfo: {
-            id: '3',
-            nickname: '小红',
-            avatar: 'https://i.pravatar.cc/150?u=user3',
-            isFollowed: false,
-          },
-          content: '地址在哪里啊？',
-          likeCount: 5,
-          isLiked: false,
-          createdAt: Date.now() - 30 * 60 * 1000,
-          replyCount: 0,
-          isTop: false,
-          replies: [],
-        },
+      // 并行请求动态详情和评论列表
+      const [feedData, commentsData] = await Promise.all([
+        feedApi.getFeedDetail(feedId),
+        feedApi.getCommentList(feedId, { pageNum: 1, pageSize: 20, sortType: 'hot' }),
       ]);
+
+      console.log('[DetailPage] 获取到的动态数据:', JSON.stringify(feedData, null, 2));
+      console.log('[DetailPage] 获取到的评论数据:', commentsData?.records?.length || 0, '条');
+
+      if (feedData) {
+        // 确保数据结构完整，补充缺失字段
+        const normalizedFeed: FeedDetail = {
+          ...feedData,
+          id: String(feedData.id),
+          userId: String(feedData.userId),
+          type: feedData.type || 1,
+          typeDesc: feedData.typeDesc || '动态',
+          title: feedData.title || '',
+          content: feedData.content || '',
+          userInfo: {
+            id: String(feedData.userInfo?.id || feedData.userId),
+            nickname: feedData.userInfo?.nickname || '用户',
+            avatar: feedData.userInfo?.avatar || 'https://via.placeholder.com/100',
+            gender: feedData.userInfo?.gender,
+            age: feedData.userInfo?.age,
+            level: feedData.userInfo?.level ?? 1,
+            levelName: feedData.userInfo?.levelName || '青铜',
+            isFollowed: feedData.userInfo?.isFollowed ?? false,
+            isRealVerified: feedData.userInfo?.isRealVerified ?? false,
+            isGodVerified: feedData.userInfo?.isGodVerified ?? false,
+            isVip: feedData.userInfo?.isVip ?? false,
+          },
+          mediaList: (feedData.mediaList || []).map((media: any) => ({
+            id: String(media.id || media.mediaId),
+            type: media.type || media.mediaType || 'image',
+            url: media.url,
+            thumbnailUrl: media.thumbnailUrl,
+            width: media.width || 0,
+            height: media.height || 0,
+            duration: media.duration,
+          })),
+          topicList: feedData.topicList || [],
+          locationName: feedData.locationName,
+          location: feedData.location,
+          likeCount: feedData.likeCount || 0,
+          commentCount: feedData.commentCount || 0,
+          shareCount: feedData.shareCount || 0,
+          collectCount: feedData.collectCount || 0,
+          viewCount: feedData.viewCount || 0,
+          isLiked: feedData.isLiked ?? false,
+          isCollected: feedData.isCollected ?? false,
+          createdAt: typeof feedData.createdAt === 'string'
+            ? new Date(feedData.createdAt).getTime()
+            : (feedData.createdAt || Date.now()),
+          updatedAt: typeof feedData.updatedAt === 'string'
+            ? new Date(feedData.updatedAt).getTime()
+            : (feedData.updatedAt || Date.now()),
+        };
+
+        console.log('[DetailPage] 标准化后的数据:', {
+          id: normalizedFeed.id,
+          mediaCount: normalizedFeed.mediaList.length,
+          userNickname: normalizedFeed.userInfo.nickname,
+        });
+
+        setFeed(normalizedFeed);
+
+        // 单独获取关注状态（如果不是自己的动态且已登录）
+        if (currentUserId && String(feedData.userId) !== String(currentUserId)) {
+          try {
+            const isFollowed = await feedApi.checkIsFollowed(String(feedData.userId));
+            console.log('[DetailPage] 获取关注状态:', { userId: feedData.userId, isFollowed });
+            // 更新关注状态
+            setFeed(prev => prev ? {
+              ...prev,
+              userInfo: {
+                ...prev.userInfo,
+                isFollowed,
+              },
+            } : null);
+          } catch (err) {
+            console.warn('[DetailPage] 获取关注状态失败:', err);
+          }
+        }
+      }
+
+      if (commentsData && commentsData.records) {
+        // 标准化评论数据
+        const normalizedComments = commentsData.records.map((comment: any) => ({
+          ...comment,
+          id: String(comment.id),
+          feedId: String(comment.feedId),
+          userId: String(comment.userId),
+          userInfo: {
+            id: String(comment.userInfo?.id || comment.userId),
+            nickname: comment.userInfo?.nickname || '用户',
+            avatar: comment.userInfo?.avatar || 'https://via.placeholder.com/100',
+          },
+          likeCount: comment.likeCount || 0,
+          replyCount: comment.replyCount || 0,
+          isLiked: comment.isLiked ?? false,
+          createdAt: typeof comment.createdAt === 'string'
+            ? new Date(comment.createdAt).getTime()
+            : (comment.createdAt || Date.now()),
+        }));
+        setComments(normalizedComments);
+      }
     } catch (error) {
+      console.error('[DetailPage] 加载详情失败:', error);
       Alert.alert('错误', '加载失败，请重试');
     } finally {
       setLoading(false);
@@ -187,15 +212,20 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
   // 点赞
   const handleLike = async () => {
     if (!feed) return;
-    
+
     try {
-      // TODO: 调用点赞API
-      setFeed({
-        ...feed,
-        isLiked: !feed.isLiked,
-        likeCount: feed.isLiked ? feed.likeCount - 1 : feed.likeCount + 1,
-      });
+      const action = feed.isLiked ? 'unlike' : 'like';
+      const result = await feedApi.like('feed', feed.id, action);
+
+      if (result.success) {
+        setFeed({
+          ...feed,
+          isLiked: result.isActive ?? !feed.isLiked,
+          likeCount: result.count ?? (feed.isLiked ? feed.likeCount - 1 : feed.likeCount + 1),
+        });
+      }
     } catch (error) {
+      console.error('[DetailPage] 点赞失败:', error);
       Alert.alert('错误', '操作失败');
     }
   };
@@ -203,15 +233,20 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
   // 收藏
   const handleCollect = async () => {
     if (!feed) return;
-    
+
     try {
-      // TODO: 调用收藏API
-      setFeed({
-        ...feed,
-        isCollected: !feed.isCollected,
-        collectCount: feed.isCollected ? feed.collectCount - 1 : feed.collectCount + 1,
-      });
+      const action = feed.isCollected ? 'uncollect' : 'collect';
+      const result = await feedApi.collect('feed', feed.id, action);
+
+      if (result.success) {
+        setFeed({
+          ...feed,
+          isCollected: result.isActive ?? !feed.isCollected,
+          collectCount: result.count ?? (feed.isCollected ? feed.collectCount - 1 : feed.collectCount + 1),
+        });
+      }
     } catch (error) {
+      console.error('[DetailPage] 收藏失败:', error);
       Alert.alert('错误', '操作失败');
     }
   };
@@ -221,62 +256,72 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
     setShowShareModal(true);
   };
 
+  // 实际执行分享
+  const handleDoShare = async (channel: 'wechat' | 'moments' | 'qq' | 'copy_link') => {
+    if (!feed) return;
+
+    try {
+      const result = await feedApi.share(feed.id, channel);
+      if (result.success) {
+        setFeed({
+          ...feed,
+          shareCount: result.count ?? feed.shareCount + 1,
+        });
+      }
+    } catch (error) {
+      console.error('[DetailPage] 分享失败:', error);
+    }
+  };
+
   // 关注用户
   const handleFollow = async () => {
     if (!feed) return;
-    
+
     try {
-      // TODO: 调用关注API
-      setFeed({
-        ...feed,
-        userInfo: {
-          ...feed.userInfo,
-          isFollowed: !feed.userInfo.isFollowed,
-        },
-      });
+      const isCurrentlyFollowed = feed.userInfo.isFollowed;
+
+      // 调用关注/取消关注API
+      const result = await feedApi.toggleFollow(feed.userId, !isCurrentlyFollowed);
+
+      if (result) {
+        setFeed({
+          ...feed,
+          userInfo: {
+            ...feed.userInfo,
+            isFollowed: !isCurrentlyFollowed,
+          },
+        });
+      }
     } catch (error) {
-      Alert.alert('错误', '操作失败');
+      console.error('[DetailPage] 关注操作失败:', error);
+      Alert.alert('错误', '操作失败，请重试');
     }
   };
 
   // 发送评论
   const handleSendComment = async () => {
-    if (!commentText.trim()) return;
-    
+    if (!commentText.trim() || !feedId) return;
+
     setIsCommenting(true);
     try {
-      // TODO: 调用评论API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const newComment: Comment = {
-        id: String(Date.now()),
+      const newComment = await feedApi.publishComment({
         feedId: feedId,
-        userId: 'current_user',
-        userInfo: {
-          id: 'current_user',
-          nickname: '我',
-          avatar: 'https://i.pravatar.cc/150?u=current',
-          isFollowed: false,
-        },
-        content: commentText,
-        likeCount: 0,
-        isLiked: false,
-        createdAt: Date.now(),
-        replyCount: 0,
-        isTop: false,
-        replies: [],
-      };
-      
-      setComments([newComment, ...comments]);
-      setCommentText('');
-      
-      if (feed) {
-        setFeed({
-          ...feed,
-          commentCount: feed.commentCount + 1,
-        });
+        content: commentText.trim(),
+      });
+
+      if (newComment) {
+        setComments([newComment, ...comments]);
+        setCommentText('');
+
+        if (feed) {
+          setFeed({
+            ...feed,
+            commentCount: feed.commentCount + 1,
+          });
+        }
       }
     } catch (error) {
+      console.error('[DetailPage] 发送评论失败:', error);
       Alert.alert('错误', '发送失败');
     } finally {
       setIsCommenting(false);
@@ -285,28 +330,40 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
 
   // 点赞评论
   const handleCommentLike = async (commentId: string) => {
-    setComments(prevComments =>
-      prevComments.map(comment =>
-        comment.id === commentId
-          ? {
-              ...comment,
-              isLiked: !comment.isLiked,
-              likeCount: comment.isLiked ? comment.likeCount - 1 : comment.likeCount + 1,
-            }
-          : comment
-      )
-    );
+    const comment = comments.find(c => c.id === commentId);
+    if (!comment) return;
+
+    try {
+      const action = comment.isLiked ? 'unlike' : 'like';
+      const result = await feedApi.like('comment', commentId, action);
+
+      if (result.success) {
+        setComments(prevComments =>
+          prevComments.map(c =>
+            c.id === commentId
+              ? {
+                  ...c,
+                  isLiked: result.isActive ?? !c.isLiked,
+                  likeCount: result.count ?? (c.isLiked ? c.likeCount - 1 : c.likeCount + 1),
+                }
+              : c
+          )
+        );
+      }
+    } catch (error) {
+      console.error('[DetailPage] 点赞评论失败:', error);
+    }
   };
 
-  // 格式化时间
+  // 格式化时间（相对时间，用于评论等）
   const formatTime = (timestamp: number): string => {
     const now = Date.now();
     const diff = now - timestamp;
-    
+
     const minute = 60 * 1000;
     const hour = 60 * minute;
     const day = 24 * hour;
-    
+
     if (diff < minute) {
       return '刚刚';
     } else if (diff < hour) {
@@ -319,6 +376,14 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
       const date = new Date(timestamp);
       return `${date.getMonth() + 1}-${date.getDate()}`;
     }
+  };
+
+  // 格式化日期（MM-DD格式，用于MetaArea）
+  const formatDate = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${month}-${day}`;
   };
 
   // 格式化数字
@@ -400,9 +465,9 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>动态详情</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => setShowShareModal(true)}
+          onPress={() => setShowMoreOptionsModal(true)}
         >
           <Text style={styles.moreButtonText}>⋯</Text>
         </TouchableOpacity>
@@ -448,24 +513,41 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
           <TouchableOpacity style={styles.userInfo} onPress={handleUserPress}>
             <Image source={{ uri: feed.userInfo.avatar }} style={styles.avatar} />
             <View style={styles.userTextInfo}>
-              <Text style={styles.nickname}>{feed.userInfo.nickname}</Text>
+              <View style={styles.userNameRow}>
+                <Text style={styles.nickname}>{feed.userInfo.nickname}</Text>
+                {/* 性别年龄标签 */}
+                {(feed.userInfo.gender || feed.userInfo.age) && (
+                  <View style={[
+                    styles.genderAgeBadge,
+                    feed.userInfo.gender === 'female' ? styles.femaleBadge : styles.maleBadge
+                  ]}>
+                    <Text style={styles.genderAgeText}>
+                      {feed.userInfo.gender === 'female' ? '♀' : '♂'}
+                      {feed.userInfo.age || ''}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.timeText}>{formatTime(feed.createdAt)}</Text>
             </View>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[
-              styles.followButton,
-              feed.userInfo.isFollowed && styles.followButtonActive
-            ]}
-            onPress={handleFollow}
-          >
-            <Text style={[
-              styles.followButtonText,
-              feed.userInfo.isFollowed && styles.followButtonTextActive
-            ]}>
-              {feed.userInfo.isFollowed ? '已关注' : '+ 关注'}
-            </Text>
-          </TouchableOpacity>
+          {/* 只有当不是自己的动态时才显示关注按钮 */}
+          {String(feed.userId) !== String(currentUserId) && (
+            <TouchableOpacity
+              style={[
+                styles.followButton,
+                feed.userInfo.isFollowed && styles.followButtonActive
+              ]}
+              onPress={handleFollow}
+            >
+              <Text style={[
+                styles.followButtonText,
+                feed.userInfo.isFollowed && styles.followButtonTextActive
+              ]}>
+                {feed.userInfo.isFollowed ? '已关注' : '+ 关注'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 标题 */}
@@ -491,15 +573,15 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
           </View>
         )}
 
-        {/* 地点 */}
-        {(feed.locationName || feed.location) && (
-          <TouchableOpacity style={styles.locationTag}>
-            <Text style={styles.locationIcon}>📍</Text>
-            <Text style={styles.locationText}>
+        {/* 元信息区域 - 日期和位置 */}
+        <View style={styles.metaArea}>
+          <Text style={styles.metaDate}>{formatDate(feed.createdAt)}</Text>
+          {(feed.locationName || feed.location) && (
+            <Text style={styles.metaLocation}>
               {feed.locationName || (typeof feed.location === 'string' ? feed.location : feed.location?.name)}
             </Text>
-          </TouchableOpacity>
-        )}
+          )}
+        </View>
 
         {/* 互动数据 */}
         <View style={styles.statsBar}>
@@ -598,6 +680,17 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
         </View>
       </View>
 
+      {/* 更多选项弹窗 */}
+      <MoreOptionsModal
+        visible={showMoreOptionsModal}
+        onClose={() => setShowMoreOptionsModal(false)}
+        isCollected={feed?.isCollected ?? false}
+        hasImages={(feed?.mediaList?.length ?? 0) > 0}
+        onShare={() => setShowShareModal(true)}
+        onCollect={handleCollect}
+        onReport={() => setShowReportModal(true)}
+      />
+
       {/* 分享弹窗 */}
       <ShareModal
         visible={showShareModal}
@@ -605,6 +698,7 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
         feedId={feedId}
         feedTitle={feed?.title}
         feedContent={feed?.content}
+        onShare={handleDoShare}
         onReport={() => setShowReportModal(true)}
       />
 
@@ -612,8 +706,9 @@ export default function DetailPage({ feedId: propFeedId }: DetailPageProps = {})
       <ReportModal
         visible={showReportModal}
         onClose={() => setShowReportModal(false)}
-        feedId={feedId}
-        feedTitle={feed?.title}
+        targetType="feed"
+        targetId={feedId}
+        targetTitle={feed?.title}
       />
     </View>
   );
@@ -739,9 +834,31 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
   },
+  userNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
   nickname: {
     fontSize: 16,
     fontWeight: '600',
+    color: COLORS.TEXT_PRIMARY,
+  },
+  genderAgeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  femaleBadge: {
+    backgroundColor: '#FFE4EC',
+  },
+  maleBadge: {
+    backgroundColor: '#E4F0FF',
+  },
+  genderAgeText: {
+    fontSize: 12,
+    fontWeight: '500',
     color: COLORS.TEXT_PRIMARY,
   },
   timeText: {
@@ -802,20 +919,21 @@ const styles = StyleSheet.create({
     color: COLORS.PRIMARY,
     fontWeight: '500',
   },
-  locationTag: {
+  metaArea: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingVertical: 12,
     backgroundColor: COLORS.CARD_BACKGROUND,
+    gap: 12,
   },
-  locationIcon: {
-    fontSize: 14,
-    marginRight: 4,
+  metaDate: {
+    fontSize: 13,
+    color: COLORS.TEXT_TERTIARY,
   },
-  locationText: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
+  metaLocation: {
+    fontSize: 13,
+    color: COLORS.TEXT_TERTIARY,
   },
   statsBar: {
     flexDirection: 'row',

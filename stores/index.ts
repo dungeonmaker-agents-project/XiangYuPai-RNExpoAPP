@@ -30,7 +30,9 @@ export {
 export { useColors, useColorScheme, useComponentConfigs, useDeviceInfo, useNetworkStatus, useSpacing, useSystemConfig, useTheme, useTypography, useUserPreferences } from './configStore';
 
 export {
-  useActiveTab, useComments, useCurrentFeeds, useCurrentHasMore, useDiscoveryError, useDiscoveryLoading, useDiscoveryUI
+  useActiveTab, useComments, useCurrentFeeds, useCurrentHasMore, useDiscoveryError, useDiscoveryLoading, useDiscoveryUI,
+  useIsSearching, useSearch, useSearchHistory, useSearchKeyword, useSearchLoading, useSearchResults,
+  useSkilledUsers, useSkilledUsersFilters, useSkilledUsersFilterOptions, useSkilledUsersLoading, useSkilledUsersPagination
 } from './discoveryStore';
 
 export {
@@ -71,7 +73,7 @@ export type {
 export type {
   CommentCache,
   // Discovery Store Types
-  FeedDataState,
+  FeedDataState, SearchState as DiscoverySearchState, SkilledUsersState,
   TabType, UIState
 } from './discoveryStore';
 

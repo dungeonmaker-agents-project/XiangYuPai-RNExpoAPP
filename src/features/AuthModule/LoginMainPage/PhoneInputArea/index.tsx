@@ -47,6 +47,7 @@ interface PhoneInputAreaProps {
   hintText?: string;
   maxLength?: number;
   showValidation?: boolean;
+  autoFocus?: boolean;  // 是否自动聚焦唤起键盘
   style?: StyleProp<ViewStyle>;
 }
 
@@ -187,6 +188,7 @@ const PhoneInputArea: React.FC<PhoneInputAreaProps> = ({
   hintText = CONFIG.DEFAULT_HINT,
   maxLength = CONFIG.DEFAULT_MAX_LENGTH,
   showValidation = true,
+  autoFocus = false,
   style,
 }) => {
   const { isFocused, handleFocus, handleBlur } = usePhoneInputState();
@@ -229,6 +231,7 @@ const PhoneInputArea: React.FC<PhoneInputAreaProps> = ({
           style={styles.input}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          autoFocus={autoFocus}
         />
       </View>
       

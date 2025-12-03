@@ -30,7 +30,6 @@
 // #endregion
 
 // #region 2. Imports
-import { User } from '@/services/api/userApi';
 import { useAuthStore } from '@/src/features/AuthModule';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -46,6 +45,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+// 导入真实API
+import { relationApi, RelationStatus, RelationUserItem } from './api';
 // #endregion
 
 // #region 3. Types
@@ -55,13 +56,32 @@ import {
 type TabType = 'following' | 'followers';
 
 /**
- * 关注/粉丝用户数据类型（扩展User类型）
+ * 关注/粉丝用户数据类型（兼容后端返回格式）
+ * 对应后端 UserRelationVo
  */
-interface FollowUser extends User {
-  mutualFollow?: boolean; // 是否互相关注
-  followedAt?: string; // 关注时间
-  isFollowing?: boolean; // 当前用户是否已关注该用户
-  isRealVerified?: boolean; // 是否实名认证
+interface FollowUser {
+  id: string;                    // 用户ID (前端使用string)
+  name: string;                  // 昵称
+  avatar: string;                // 头像URL
+  age?: number;                  // 年龄
+  gender: string;                // 性别: male, female, other
+  description?: string;          // 个性签名/简介
+  isRealVerified?: boolean;      // 是否实名认证
+  isFollowing?: boolean;         // 当前用户是否已关注该用户
+  mutualFollow?: boolean;        // 是否互相关注
+  relationStatus?: RelationStatus; // 关系状态: none, following, followed, mutual
+  isOnline?: boolean;            // 是否在线
+  // 兼容旧字段
+  location?: { city?: string; district?: string; distance?: number };
+  tags?: string[];
+  price?: number;
+  rating?: number;
+  reviewCount?: number;
+  lastActiveTime?: string;
+  serviceTypes?: string[];
+  images?: string[];
+  skills?: string[];
+  followedAt?: string;
 }
 
 /**
@@ -71,12 +91,36 @@ export interface FollowListPageProps {
   userId?: string; // 查看指定用户的关注/粉丝列表（不传则查看当前登录用户）
   initialTab?: TabType; // 初始显示的Tab
 }
+
+/**
+ * 将后端返回数据转换为前端FollowUser格式
+ */
+const transformToFollowUser = (item: RelationUserItem): FollowUser => {
+  const isMutual = item.relationStatus === 'mutual' || item.isMutualFollow === true;
+  const isFollowing = item.isFollowing === true ||
+                      item.relationStatus === 'following' ||
+                      item.relationStatus === 'mutual';
+
+  return {
+    id: String(item.userId),
+    name: item.nickname || '未知用户',
+    avatar: item.avatar || 'https://i.pravatar.cc/150?img=1',
+    age: item.age ?? undefined,
+    gender: item.gender || 'other',
+    description: item.signature || item.bio || '',
+    isRealVerified: item.isVerified ?? false,
+    isFollowing: isFollowing,
+    mutualFollow: isMutual,
+    relationStatus: item.relationStatus || 'none',
+    isOnline: item.isOnline ?? false,
+  };
+};
 // #endregion
 
 // #region 4. Constants & Mock Data
 const PAGE_SIZE = 20;
 
-const GENDER_CONFIG = {
+const GENDER_CONFIG: Record<string, { label: string; color: string }> = {
   male: { label: '男生', color: '#3B82F6' },
   female: { label: '女生', color: '#EC4899' },
   other: { label: '其他', color: '#8B5CF6' },
@@ -292,46 +336,67 @@ const MOCK_FOLLOWERS_DATA: FollowUser[] = [
 
 // #region 5. API Service
 /**
+ * 是否使用真实API（设为false时使用Mock数据）
+ */
+const USE_REAL_API = true;
+
+/**
  * 加载关注列表数据
  */
 const loadFollowingList = async (
   userId: string,
   page: number,
-  limit: number = PAGE_SIZE
+  limit: number = PAGE_SIZE,
+  keyword?: string
 ): Promise<{
   users: FollowUser[];
   hasMore: boolean;
   total: number;
 }> => {
   try {
-    // 使用虚拟数据
-    await new Promise(resolve => setTimeout(resolve, 300)); // 模拟网络延迟
-    
+    if (USE_REAL_API) {
+      // 使用真实API
+      console.log('[FollowListPage] 调用真实API获取关注列表');
+      const response = await relationApi.getFollowingList(page, limit, keyword);
+
+      const users = (response.rows || []).map(transformToFollowUser);
+      const total = response.total || 0;
+      const hasMore = page * limit < total;
+
+      console.log('[FollowListPage] 关注列表加载成功:', users.length, '个用户, 总计:', total);
+
+      return { users, hasMore, total };
+    } else {
+      // 使用虚拟数据
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const filteredData = keyword
+        ? MOCK_FOLLOWING_DATA.filter(u => u.name.toLowerCase().includes(keyword.toLowerCase()))
+        : MOCK_FOLLOWING_DATA;
+      const users = filteredData.slice(startIndex, endIndex);
+
+      console.log('[FollowListPage] 加载关注列表(Mock):', users.length, '个用户');
+
+      return {
+        users,
+        hasMore: endIndex < filteredData.length,
+        total: filteredData.length,
+      };
+    }
+  } catch (error) {
+    console.error('[FollowListPage] loadFollowingList error:', error);
+    // 出错时回退到Mock数据
+    console.log('[FollowListPage] 回退到Mock数据');
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const users = MOCK_FOLLOWING_DATA.slice(startIndex, endIndex);
-    
-    console.log('[FollowListPage] 加载关注列表:', users.length, '个用户');
-    
     return {
       users,
       hasMore: endIndex < MOCK_FOLLOWING_DATA.length,
       total: MOCK_FOLLOWING_DATA.length,
     };
-    
-    // 真实API调用（暂时注释）
-    // const response = await userApi.getUserFollowing(userId, page, limit);
-    // if (response.success && response.data) {
-    //   return {
-    //     users: response.data.users as FollowUser[],
-    //     hasMore: response.data.pagination.hasMore,
-    //     total: response.data.pagination.total,
-    //   };
-    // }
-    // throw new Error(response.message || '加载失败');
-  } catch (error) {
-    console.error('[FollowListPage] loadFollowingList error:', error);
-    throw error;
   }
 };
 
@@ -341,41 +406,57 @@ const loadFollowingList = async (
 const loadFollowersList = async (
   userId: string,
   page: number,
-  limit: number = PAGE_SIZE
+  limit: number = PAGE_SIZE,
+  keyword?: string
 ): Promise<{
   users: FollowUser[];
   hasMore: boolean;
   total: number;
 }> => {
   try {
-    // 使用虚拟数据
-    await new Promise(resolve => setTimeout(resolve, 300)); // 模拟网络延迟
-    
+    if (USE_REAL_API) {
+      // 使用真实API
+      console.log('[FollowListPage] 调用真实API获取粉丝列表');
+      const response = await relationApi.getFansList(page, limit, keyword);
+
+      const users = (response.rows || []).map(transformToFollowUser);
+      const total = response.total || 0;
+      const hasMore = page * limit < total;
+
+      console.log('[FollowListPage] 粉丝列表加载成功:', users.length, '个用户, 总计:', total);
+
+      return { users, hasMore, total };
+    } else {
+      // 使用虚拟数据
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const filteredData = keyword
+        ? MOCK_FOLLOWERS_DATA.filter(u => u.name.toLowerCase().includes(keyword.toLowerCase()))
+        : MOCK_FOLLOWERS_DATA;
+      const users = filteredData.slice(startIndex, endIndex);
+
+      console.log('[FollowListPage] 加载粉丝列表(Mock):', users.length, '个用户');
+
+      return {
+        users,
+        hasMore: endIndex < filteredData.length,
+        total: filteredData.length,
+      };
+    }
+  } catch (error) {
+    console.error('[FollowListPage] loadFollowersList error:', error);
+    // 出错时回退到Mock数据
+    console.log('[FollowListPage] 回退到Mock数据');
     const startIndex = (page - 1) * limit;
     const endIndex = startIndex + limit;
     const users = MOCK_FOLLOWERS_DATA.slice(startIndex, endIndex);
-    
-    console.log('[FollowListPage] 加载粉丝列表:', users.length, '个用户');
-    
     return {
       users,
       hasMore: endIndex < MOCK_FOLLOWERS_DATA.length,
       total: MOCK_FOLLOWERS_DATA.length,
     };
-    
-    // 真实API调用（暂时注释）
-    // const response = await userApi.getUserFollowers(userId, page, limit);
-    // if (response.success && response.data) {
-    //   return {
-    //     users: response.data.users as FollowUser[],
-    //     hasMore: response.data.pagination.hasMore,
-    //     total: response.data.pagination.total,
-    //   };
-    // }
-    // throw new Error(response.message || '加载失败');
-  } catch (error) {
-    console.error('[FollowListPage] loadFollowersList error:', error);
-    throw error;
   }
 };
 
@@ -387,17 +468,17 @@ const toggleFollowUser = async (
   currentlyFollowing: boolean
 ): Promise<boolean> => {
   try {
-    // 使用虚拟数据 - 模拟成功
-    await new Promise(resolve => setTimeout(resolve, 300));
-    console.log(`${currentlyFollowing ? '取消关注' : '关注'} 用户:`, targetUserId);
-    return true;
-    
-    // 真实API调用（暂时注释）
-    // const response = await userApi.followUser({
-    //   targetUserId,
-    //   action: currentlyFollowing ? 'unfollow' : 'follow',
-    // });
-    // return response.success;
+    if (USE_REAL_API) {
+      // 使用真实API
+      console.log(`[FollowListPage] ${currentlyFollowing ? '取消关注' : '关注'} 用户:`, targetUserId);
+      await relationApi.toggleFollow(targetUserId, currentlyFollowing);
+      return true;
+    } else {
+      // 使用虚拟数据 - 模拟成功
+      await new Promise(resolve => setTimeout(resolve, 300));
+      console.log(`[FollowListPage] ${currentlyFollowing ? '取消关注' : '关注'} 用户(Mock):`, targetUserId);
+      return true;
+    }
   } catch (error) {
     console.error('[FollowListPage] toggleFollowUser error:', error);
     return false;

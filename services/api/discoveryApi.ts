@@ -21,7 +21,7 @@ import {
 import type { ContentDetailVO, ContentListVO } from './types/content';
 
 // 开关：是否使用虚拟数据
-const USE_MOCK_DATA = true;
+const USE_MOCK_DATA = false;
 
 // ==================== 类型定义 ====================
 
@@ -61,6 +61,7 @@ export interface CommentItem {
 // ==================== 导出类型 ====================
 
 export type { ContentDetailVO, ContentListVO };
+export type { SkilledUsersParams, SkilledUserVO, SkilledUsersResultVO };
 
 /**
  * 请求参数接口
@@ -83,6 +84,60 @@ export interface NearbyParams {
   radius?: number;
   type?: number;
   limit?: number;
+}
+
+/**
+ * 有技能用户查询参数
+ */
+export interface SkilledUsersParams {
+  pageNum?: number;
+  pageSize?: number;
+  gender?: 'all' | 'male' | 'female';
+  sortBy?: 'smart_recommend' | 'price_asc' | 'price_desc' | 'distance_asc';
+  cityCode?: string;
+  districtCode?: string;
+}
+
+/**
+ * 有技能用户信息
+ */
+export interface SkilledUserVO {
+  userId: number;
+  avatar: string;
+  nickname: string;
+  gender: string;
+  age: number;
+  distance: number;
+  distanceText: string;
+  tags: Array<{
+    text: string;
+    type: 'feature' | 'price' | 'skill';
+    color: string;
+  }>;
+  description: string;
+  price: {
+    amount: number;
+    unit: string;
+    displayText: string;
+    originalPrice: number;
+  };
+  promotionTag: string;
+  isOnline: boolean;
+  skillLevel: string;
+}
+
+/**
+ * 有技能用户列表响应
+ */
+export interface SkilledUsersResultVO {
+  total: number;
+  hasMore: boolean;
+  filters: {
+    sortOptions: Array<{ value: string; label: string }>;
+    genderOptions: Array<{ value: string; label: string }>;
+    languageOptions: Array<{ value: string; label: string }>;
+  };
+  list: SkilledUserVO[];
 }
 
 /**
@@ -364,7 +419,7 @@ export class DiscoveryAPI {
 
   /**
    * 获取用户发布的内容
-   * 
+   *
    * @param userId - 用户ID
    * @param type - 内容类型（可选）
    * @param limit - 返回数量限制，默认 20
@@ -379,7 +434,7 @@ export class DiscoveryAPI {
 
       const queryParams = buildQueryParams({ type, limit });
       const url = `/xypai-content/api/v1/discovery/user/${userId}${queryParams ? `?${queryParams}` : ''}`;
-      
+
       const response = await apiClient.get<ContentListVO[]>(url);
 
       console.log('[DiscoveryAPI] 获取用户内容成功', {
@@ -395,6 +450,234 @@ export class DiscoveryAPI {
       return [];
     }
   }
+
+  /**
+   * 获取有技能的用户列表
+   *
+   * 说明：
+   * - 返回所有有上架技能的用户
+   * - 支持分页、性别筛选和排序
+   * - 后端接口: GET /xypai-user/api/user/discovery/skilled-users
+   *
+   * @param params - 查询参数
+   * @returns 有技能用户列表
+   */
+  async getSkilledUsers(params: SkilledUsersParams = {}): Promise<SkilledUsersResultVO | null> {
+    const {
+      pageNum = 1,
+      pageSize = 20,
+      gender = 'all',
+      sortBy = 'smart_recommend',
+      cityCode,
+      districtCode
+    } = params;
+
+    try {
+      const queryParams = buildQueryParams({
+        pageNum,
+        pageSize,
+        gender,
+        sortBy,
+        cityCode,
+        districtCode
+      });
+
+      const url = `/xypai-user/api/user/discovery/skilled-users${queryParams ? `?${queryParams}` : ''}`;
+
+      console.log('\n📱 [DiscoveryAPI] ========== 开始获取有技能用户列表 ==========');
+      console.log('📱 请求参数:', { pageNum, pageSize, gender, sortBy, cityCode, districtCode });
+      console.log('📱 完整URL:', url);
+
+      const response = await apiClient.get<SkilledUsersResultVO>(url);
+
+      console.log('📱 [DiscoveryAPI] ========== 响应详情 ==========');
+      console.log('📱 success:', response.success);
+      console.log('📱 code:', response.code);
+      console.log('📱 total:', response.data?.total || 0);
+      console.log('📱 hasMore:', response.data?.hasMore);
+      console.log('📱 用户数量:', response.data?.list?.length || 0);
+
+      if (response.data?.list && response.data.list.length > 0) {
+        console.log('📱 第一个用户样本:', JSON.stringify(response.data.list[0], null, 2));
+      }
+
+      console.log('📱 ==============================================\n');
+
+      return response.data || null;
+    } catch (error: any) {
+      console.error('\n❌ [DiscoveryAPI] ========== 获取有技能用户失败 ==========');
+      console.error('❌ 错误类型:', error.type || 'unknown');
+      console.error('❌ 错误信息:', error.message);
+      console.error('❌ 状态码:', error.code);
+      console.error('❌ ==============================================\n');
+      return null;
+    }
+  }
+
+  // ==================== BFF 发现页接口 ====================
+
+  /**
+   * 获取发现页内容列表（BFF聚合接口）
+   *
+   * 支持三Tab: follow(关注), hot(热门), nearby(同城)
+   *
+   * @param params - 查询参数
+   * @returns 发现页内容列表
+   */
+  async getDiscoverList(params: DiscoverListParams = {}): Promise<DiscoverListResultVO | null> {
+    const {
+      tab = 'hot',
+      pageNum = 1,
+      pageSize = 20,
+      latitude,
+      longitude
+    } = params;
+
+    try {
+      const queryParams = buildQueryParams({
+        tab,
+        pageNum,
+        pageSize,
+        latitude,
+        longitude
+      });
+
+      const url = `/xypai-app-bff/api/discover/list${queryParams ? `?${queryParams}` : ''}`;
+
+      console.log('\n📱 [DiscoveryAPI] ========== 获取发现列表 (BFF) ==========');
+      console.log('📱 请求参数:', { tab, pageNum, pageSize, latitude, longitude });
+      console.log('📱 完整URL:', url);
+
+      const response = await apiClient.get<DiscoverListResultVO>(url);
+
+      console.log('📱 [DiscoveryAPI] ========== 响应详情 ==========');
+      console.log('📱 success:', response.success);
+      console.log('📱 code:', response.code);
+      console.log('📱 total:', response.data?.total || 0);
+      console.log('📱 hasMore:', response.data?.hasMore);
+      console.log('📱 内容数量:', response.data?.list?.length || 0);
+
+      if (response.data?.list && response.data.list.length > 0) {
+        console.log('📱 第一条内容样本:', JSON.stringify(response.data.list[0], null, 2));
+      }
+
+      console.log('📱 ==============================================\n');
+
+      return response.data || null;
+    } catch (error: any) {
+      console.error('\n❌ [DiscoveryAPI] ========== 获取发现列表失败 ==========');
+      console.error('❌ 错误类型:', error.type || 'unknown');
+      console.error('❌ 错误信息:', error.message);
+      console.error('❌ 状态码:', error.code);
+      console.error('❌ ==============================================\n');
+      return null;
+    }
+  }
+
+  /**
+   * 点赞/取消点赞（BFF聚合接口）
+   *
+   * @param params - 点赞参数
+   * @returns 点赞结果
+   */
+  async toggleDiscoverLike(params: DiscoverLikeParams): Promise<DiscoverLikeResultVO | null> {
+    try {
+      const url = `/xypai-app-bff/api/discover/like`;
+
+      console.log('\n📱 [DiscoveryAPI] ========== 点赞操作 (BFF) ==========');
+      console.log('📱 请求参数:', params);
+
+      const response = await apiClient.post<DiscoverLikeResultVO>(url, params);
+
+      console.log('📱 [DiscoveryAPI] ========== 响应详情 ==========');
+      console.log('📱 success:', response.success);
+      console.log('📱 isLiked:', response.data?.isLiked);
+      console.log('📱 likeCount:', response.data?.likeCount);
+      console.log('📱 ==============================================\n');
+
+      return response.data || null;
+    } catch (error: any) {
+      console.error('\n❌ [DiscoveryAPI] ========== 点赞操作失败 ==========');
+      console.error('❌ 错误信息:', error.message);
+      console.error('❌ ==============================================\n');
+      return null;
+    }
+  }
+}
+
+// ==================== BFF 发现页接口类型 ====================
+
+/**
+ * BFF发现页内容项（对应后端 DiscoverContentItemVO）
+ */
+export interface DiscoverContentItemVO {
+  id: string;
+  type: 'image' | 'video';
+  mediaData: {
+    coverUrl: string;
+    aspectRatio: number;
+    duration: number;
+    width: number;
+    height: number;
+  };
+  textData: {
+    title: string;
+    content?: string;
+  };
+  authorData: {
+    userId: string;
+    avatar: string;
+    nickname: string;
+  };
+  statsData: {
+    likeCount: number;
+    isLiked: boolean;
+    commentCount: number;
+    collectCount: number;
+    isCollected: boolean;
+  };
+  metaData: {
+    createTime: string;
+    location?: string;
+    distance?: number;
+  };
+}
+
+/**
+ * BFF发现页列表响应
+ */
+export interface DiscoverListResultVO {
+  list: DiscoverContentItemVO[];
+  hasMore: boolean;
+  total: number;
+}
+
+/**
+ * BFF发现页查询参数
+ */
+export interface DiscoverListParams {
+  tab?: 'follow' | 'hot' | 'nearby';
+  pageNum?: number;
+  pageSize?: number;
+  latitude?: number;
+  longitude?: number;
+}
+
+/**
+ * BFF点赞请求
+ */
+export interface DiscoverLikeParams {
+  contentId: string;
+  action: 'like' | 'unlike';
+}
+
+/**
+ * BFF点赞响应
+ */
+export interface DiscoverLikeResultVO {
+  success: boolean;
+  isLiked: boolean;
+  likeCount: number;
 }
 
 // 导出单例实例
@@ -402,3 +685,12 @@ export const discoveryApi = new DiscoveryAPI();
 
 // 默认导出
 export default discoveryApi;
+
+// 导出BFF类型
+export type {
+  DiscoverContentItemVO,
+  DiscoverListResultVO,
+  DiscoverListParams,
+  DiscoverLikeParams,
+  DiscoverLikeResultVO
+};

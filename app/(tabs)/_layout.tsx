@@ -1,12 +1,31 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthStore } from '@/src/features/AuthModule/stores/authStore';
+
+// Tab bar icons
+const TAB_ICONS = {
+  home: {
+    active: require('@/assets/images/images/home/bottom-navigation/home-active.png'),
+    inactive: require('@/assets/images/images/home/bottom-navigation/home-inactive.png'),
+  },
+  discover: {
+    active: require('@/assets/images/images/home/bottom-navigation/discover-active.png'),
+    inactive: require('@/assets/images/images/home/bottom-navigation/discover-inactive.png'),
+  },
+  message: {
+    active: require('@/assets/images/images/home/bottom-navigation/message-active.png'),
+    inactive: require('@/assets/images/images/home/bottom-navigation/message-inactive.png'),
+  },
+  profile: {
+    active: require('@/assets/images/images/home/bottom-navigation/profile-active.png'),
+    inactive: require('@/assets/images/images/home/bottom-navigation/profile-inactive.png'),
+  },
+};
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -71,7 +90,12 @@ export default function TabLayout() {
         name="homepage"
         options={{
           title: '首页',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="house.fill" color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={focused ? TAB_ICONS.home.active : TAB_ICONS.home.inactive}
+              style={styles.tabIcon}
+            />
+          ),
         }}
         listeners={{
           tabPress: () => {
@@ -85,7 +109,12 @@ export default function TabLayout() {
         name="discover"
         options={{
           title: '发现',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="globe" color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={focused ? TAB_ICONS.discover.active : TAB_ICONS.discover.inactive}
+              style={styles.tabIcon}
+            />
+          ),
         }}
         listeners={{
           tabPress: () => {
@@ -99,7 +128,12 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: '消息',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="message.fill" color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={focused ? TAB_ICONS.message.active : TAB_ICONS.message.inactive}
+              style={styles.tabIcon}
+            />
+          ),
         }}
         // 🎯 不使用redirect，让Tab始终显示，在页面内处理登录提示
         listeners={{
@@ -123,7 +157,12 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: '我的',
-          tabBarIcon: ({ color }) => <IconSymbol size={24} name="person.fill" color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <Image
+              source={focused ? TAB_ICONS.profile.active : TAB_ICONS.profile.inactive}
+              style={styles.tabIcon}
+            />
+          ),
         }}
         // 🎯 不使用redirect，让Tab始终显示，在页面内处理登录提示
         listeners={{
@@ -155,5 +194,10 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  tabIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: 'contain',
   },
 });

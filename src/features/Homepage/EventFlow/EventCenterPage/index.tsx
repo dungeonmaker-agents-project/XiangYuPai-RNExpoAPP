@@ -11,9 +11,15 @@ import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { FlatList, Image, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ErrorBoundary } from '../../../../components';
-import { AdvancedFilterSheet, AdvancedFilters } from './components/AdvancedFilterSheet';
-import { GenderBottomSheet, GenderOption } from './components/GenderBottomSheet';
-import { SortBottomSheet, SortOption } from './components/SortBottomSheet';
+// 使用 SharedComponents 中的共享弹窗组件
+import {
+  AdvancedFilterSheet,
+  GenderBottomSheet,
+  SortBottomSheet,
+  type AdvancedFilters,
+  type GenderOption,
+  type SortOption,
+} from '../../SharedComponents';
 // #endregion
 
 // #region 3. Types & Schema
@@ -105,8 +111,8 @@ const useEventCenterLogic = () => {
   const [showFilterSheet, setShowFilterSheet] = useState(false);
   
   const handleEventPress = useCallback((eventId: string) => {
-    // Navigate to skill detail page
-    router.push(`/skill/${eventId}`);
+    // Navigate to skill detail page with event contentType
+    router.push(`/skill/${eventId}?contentType=event`);
   }, [router]);
   
   const handlePublish = useCallback(() => {

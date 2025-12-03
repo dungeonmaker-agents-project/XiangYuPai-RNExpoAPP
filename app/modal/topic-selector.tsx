@@ -1,6 +1,6 @@
 /**
  * TopicSelectorModal - 话题选择器Modal
- * 
+ *
  * 功能：
  * - 搜索话题
  * - 显示推荐话题列表
@@ -8,7 +8,7 @@
  * - 显示热门标签
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -21,6 +21,10 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+
+// 导入API
+import { publishApi } from '@/services/api';
+import type { PublishTopic } from '@/services/api';
 
 // 颜色常量
 const COLORS = {
@@ -35,15 +39,8 @@ const COLORS = {
   SELECTED: '#8A2BE2',
 } as const;
 
-// 话题类型
-export interface Topic {
-  id: string;
-  name: string;
-  description?: string;
-  isHot?: boolean;
-  participantCount?: number;
-  postCount?: number;
-}
+// 话题类型 - 使用API类型
+export interface Topic extends PublishTopic {}
 
 interface TopicSelectorModalProps {
   visible: boolean;
@@ -52,61 +49,9 @@ interface TopicSelectorModalProps {
   onClose: () => void;
 }
 
-// 模拟话题数据
-const MOCK_TOPICS: Topic[] = [
-  {
-    id: '1',
-    name: '王者荣耀',
-    description: '话题描述话题描述话题描述话题描述话题描述话题描述...',
-    isHot: true,
-    participantCount: 15000,
-    postCount: 50000,
-  },
-  {
-    id: '2',
-    name: '话题标题话题标题',
-    description: '话题描述话题描述话题描述话题描述话题描述话题描述...',
-    isHot: true,
-    participantCount: 12000,
-    postCount: 45000,
-  },
-  {
-    id: '3',
-    name: '话题标题话题标题',
-    description: '话题描述话题描述话题描述话题描述话题描述话题描述...',
-    isHot: false,
-    participantCount: 8000,
-    postCount: 30000,
-  },
-  {
-    id: '4',
-    name: '话题标题话题标题',
-    description: '话题描述话题描述话题描述话题描述话题描述话题描述...',
-    isHot: false,
-    participantCount: 5000,
-    postCount: 20000,
-  },
-  {
-    id: '5',
-    name: '话题标题话题标题',
-    description: '话题描述话题描述话题描述话题描述话题描述话题描述...',
-    isHot: false,
-    participantCount: 3000,
-    postCount: 15000,
-  },
-  {
-    id: '6',
-    name: '话题标题话题标题',
-    description: '话题描述话题描述话题描述话题描述话题描述话题描述...',
-    isHot: false,
-    participantCount: 2000,
-    postCount: 10000,
-  },
-];
-
 // 推荐标签
 const RECOMMENDED_TAGS = [
-  '王者荣耀', '英雄联盟', '和平精英', '探店', '热门',
+  '王者荣耀', '英雄联盟', '和平精英', '探店', '美食',
 ];
 
 export default function TopicSelectorModal({
@@ -116,61 +61,77 @@ export default function TopicSelectorModal({
   onClose,
 }: TopicSelectorModalProps) {
   const [searchText, setSearchText] = useState('');
-  const [topics, setTopics] = useState<Topic[]>(MOCK_TOPICS);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(false);
   const [tempSelectedTopics, setTempSelectedTopics] = useState<Topic[]>(selectedTopics);
 
-  // 同步外部选中的话题
+  // 加载热门话题
+  const loadHotTopics = useCallback(async () => {
+    setLoading(true);
+    try {
+      const hotTopics = await publishApi.getHotTopics(20);
+      setTopics(hotTopics);
+    } catch (error) {
+      console.error('加载热门话题失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 同步外部选中的话题 & 加载初始数据
   useEffect(() => {
     setTempSelectedTopics(selectedTopics);
-  }, [selectedTopics, visible]);
+    if (visible) {
+      loadHotTopics();
+    }
+  }, [selectedTopics, visible, loadHotTopics]);
 
   // 搜索话题
-  const handleSearch = async (text: string) => {
+  const handleSearch = useCallback(async (text: string) => {
     setSearchText(text);
-    
+
     if (!text.trim()) {
-      setTopics(MOCK_TOPICS);
+      loadHotTopics();
       return;
     }
 
     setLoading(true);
     try {
-      // TODO: 调用搜索API
-      await new Promise(resolve => setTimeout(resolve, 300));
-      const filtered = MOCK_TOPICS.filter(topic => 
-        topic.name.toLowerCase().includes(text.toLowerCase())
-      );
-      setTopics(filtered);
+      const searchResults = await publishApi.searchTopics(text);
+      setTopics(searchResults);
     } catch (error) {
       console.error('搜索话题失败:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadHotTopics]);
 
   // 切换话题选中状态
-  const toggleTopic = (topic: Topic) => {
+  const toggleTopic = useCallback((topic: Topic) => {
     const isSelected = tempSelectedTopics.some(t => t.id === topic.id);
-    
+
     if (isSelected) {
       setTempSelectedTopics(prev => prev.filter(t => t.id !== topic.id));
     } else {
+      // 限制最多选择5个话题
+      if (tempSelectedTopics.length >= 5) {
+        return;
+      }
       setTempSelectedTopics(prev => [...prev, topic]);
     }
-  };
+  }, [tempSelectedTopics]);
 
   // 确认选择
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     onSelect(tempSelectedTopics);
-  };
+  }, [tempSelectedTopics, onSelect]);
 
   // 取消
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     setTempSelectedTopics(selectedTopics);
     setSearchText('');
     onClose();
-  };
+  }, [selectedTopics, onClose]);
 
   // 渲染话题项
   const renderTopicItem = ({ item }: { item: Topic }) => {

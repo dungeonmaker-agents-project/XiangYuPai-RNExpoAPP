@@ -17,16 +17,16 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 import CodeInputArea from '../LoginMainPage/CodeInputArea';
@@ -124,7 +124,7 @@ const ForgotPasswordPage: React.FC = () => {
   // ============ 事件处理 ============
   
   /**
-   * 返回上一页
+   * 返回上一步
    */
   const handleGoBack = useCallback(() => {
     if (currentStep === 'phone') {
@@ -145,7 +145,7 @@ const ForgotPasswordPage: React.FC = () => {
     try {
       setLoading(prev => ({ ...prev, sendCode: true }));
       
-      // ========== ✅ 使用假数据模拟发送验证码 ==========
+      // ========== ⚠️ 使用假数据模拟发送验证码 ==========
       console.log('[ForgotPasswordPage] 📱 模拟发送重置密码验证码');
       console.log(`   手机号: ${formData.phoneNumber}`);
       
@@ -160,7 +160,7 @@ const ForgotPasswordPage: React.FC = () => {
       startCountdown();
       setCurrentStep('verify');
     } catch (error: any) {
-      console.error('发送失败:', error.message || '验证码发送失败，请稍后重试');
+      console.error('发送失败', error.message || '验证码发送失败，请稍后重试');
     } finally {
       setLoading(prev => ({ ...prev, sendCode: false }));
     }
@@ -175,7 +175,7 @@ const ForgotPasswordPage: React.FC = () => {
     try {
       setLoading(prev => ({ ...prev, verify: true }));
       
-      // ========== ✅ 使用假数据模拟验证 ==========
+      // ========== ⚠️ 使用假数据模拟验证 ==========
       console.log('[ForgotPasswordPage] 🔍 模拟验证验证码');
       console.log(`   验证码: ${formData.verificationCode}`);
       
@@ -183,10 +183,12 @@ const ForgotPasswordPage: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       console.log('   ✅ 验证码验证成功（模拟）');
+      console.log('   💡 提示: 任何6位数字验证码都可以通过验证');
       // =========================================
       
-      // 验证成功，直接进入下一步
+      // 验证成功，进入密码设置步骤
       setCurrentStep('password');
+
     } catch (error: any) {
       console.error('验证失败:', error.message || '验证码错误，请重新输入');
     } finally {
@@ -199,14 +201,14 @@ const ForgotPasswordPage: React.FC = () => {
    */
   const handleResetPassword = useCallback(async () => {
     if (!isPasswordValid() || !isPasswordMatched()) {
-      Alert.alert('提示', '请输入有效的密码且确保两次输入一致');
+      Alert.alert('提示', '请输入有效的密码且确保两次输入一�?');
       return;
     }
     
     try {
       setLoading(prev => ({ ...prev, reset: true }));
       
-      // ========== ✅ 使用假数据模拟重置密码 ==========
+      // ========== ⚠️ 使用假数据模拟重置密码 ==========
       console.log('[ForgotPasswordPage] 🔐 模拟重置密码');
       console.log(`   手机号: ${formData.phoneNumber}`);
       console.log(`   新密码长度: ${formData.newPassword.length}`);
@@ -310,10 +312,6 @@ const ForgotPasswordPage: React.FC = () => {
           code={formData.verificationCode}
           onCodeChange={(code) => {
             setFormData(prev => ({ ...prev, verificationCode: code }));
-            // 输入完成后自动验证
-            if (code.length === CONFIG.CODE_LENGTH) {
-              setTimeout(() => handleVerifyCode(), 100);
-            }
           }}
           codeValid={isCodeValid()}
           digitCount={CONFIG.CODE_LENGTH}
@@ -321,23 +319,39 @@ const ForgotPasswordPage: React.FC = () => {
         />
       </View>
       
-      {/* 获取验证码按钮 - 使用登录页面的样式 */}
+      {/* 确认验证码按钮 */}
       <TouchableOpacity
         style={[
-          styles.sendCodeButton,
+          styles.primaryButton,
+          !isCodeValid() && styles.buttonDisabled,
+        ]}
+        onPress={handleVerifyCode}
+        disabled={!isCodeValid() || loading.verify}
+        activeOpacity={0.8}
+      >
+        {loading.verify ? (
+          <ActivityIndicator color="#FFFFFF" size="small" />
+        ) : (
+          <Text style={styles.primaryButtonText}>确认</Text>
+        )}
+      </TouchableOpacity>
+      
+      {/* 重新获取验证码按钮 */}
+      <TouchableOpacity
+        style={[
+          styles.resendButton,
           (isCountingDown || loading.sendCode) && styles.buttonDisabled,
         ]}
         onPress={handleSendCode}
         disabled={isCountingDown || loading.sendCode}
         activeOpacity={0.8}
       >
-        {loading.sendCode ? (
-          <ActivityIndicator color="#FFFFFF" size="small" />
-        ) : (
-          <Text style={styles.sendCodeButtonText}>
-            {isCountingDown ? `${countdown}秒后重新获取` : '获取短信验证码'}
-          </Text>
-        )}
+        <Text style={[
+          styles.resendButtonText,
+          (isCountingDown || loading.sendCode) && styles.textDisabled,
+        ]}>
+          {isCountingDown ? `${countdown}秒后重新获取` : '重新获取验证码'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -521,6 +535,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   
+  // 验证码输入容器
+  codeInputContainer: {
+    marginBottom: 20,
+    marginTop: 20,
+  },
+  
   // 手机号输入
   phoneInputWrapper: {
     height: 56,
@@ -588,7 +608,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   
-  // 主按钮
+  // 主按�?
   primaryButton: {
     height: 50,
     backgroundColor: COLORS.PRIMARY,
@@ -606,6 +626,22 @@ const styles = StyleSheet.create({
   
   buttonDisabled: {
     opacity: 0.5,
+  },
+  
+  // 发送验证码按钮（用于验证码步骤）
+  sendCodeButton: {
+    height: 50,
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  
+  sendCodeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   
   // 重新发送按钮

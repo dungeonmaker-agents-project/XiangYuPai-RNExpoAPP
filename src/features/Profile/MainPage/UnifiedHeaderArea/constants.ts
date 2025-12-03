@@ -1,14 +1,17 @@
 /**
  * UnifiedHeaderArea - Constants
  * 统一头部区域常量定义
+ *
+ * UI设计参考：个人主页-资料.png / 个人主页-动态.png
+ * 背景图片占屏幕约50%高度，用户信息在底部
  */
 
 import { Dimensions } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // #region Layout Constants
-export const BACKGROUND_HEIGHT = 240; // 背景图片高度（更紧凑的设计）
+export const BACKGROUND_HEIGHT = Math.round(SCREEN_HEIGHT * 0.52); // 背景图片高度（屏幕52%）
 export const CARD_ELEVATION_OFFSET = -40; // 卡片上浮偏移量（负值表示向上）
 export const CARD_BORDER_RADIUS = 20; // 卡片圆角（更圆润）
 export const CARD_HORIZONTAL_MARGIN = 16; // 卡片左右边距

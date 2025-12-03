@@ -23,7 +23,7 @@ export default function HomepageLayout() {
         name="service-detail" 
         options={{
           title: '服务详情',
-          headerShown: true,
+          headerShown: false,
           headerBackTitle: '返回',
         }} 
       />
@@ -85,7 +85,7 @@ export default function HomepageLayout() {
         name="event-center" 
         options={{
           title: '组局中心',
-          headerShown: true,
+          headerShown: false,
           headerBackTitle: '返回',
         }} 
       />
@@ -95,7 +95,7 @@ export default function HomepageLayout() {
         name="featured" 
         options={{
           title: '限时专享',
-          headerShown: true,
+          headerShown: false,
           headerBackTitle: '返回',
         }} 
       />

@@ -40,9 +40,15 @@ import { useConfigStore, useUserStore } from '../../../../../stores';
 // 共享组件
 import { ErrorBoundary, LoadingOverlay } from '../../../../components';
 
-// 本地组件
-import type { AdvancedFilters, GenderOption, SortOption } from './components';
-import { AdvancedFilterSheet, GenderBottomSheet, SortBottomSheet } from './components';
+// 使用 SharedComponents 中的共享弹窗组件
+import {
+  AdvancedFilterSheet,
+  GenderBottomSheet,
+  SortBottomSheet,
+  type AdvancedFilters,
+  type GenderOption,
+  type SortOption,
+} from '../../SharedComponents';
 
 // 类型和常量
 import { FUNCTION_ID_TO_SERVICE_TYPE, GAME_SERVICE_TAGS, LIFESTYLE_SERVICE_TAGS, SERVICE_DETAIL_CONSTANTS, SERVICE_DETAIL_ROUTES, SERVICE_THEME_MAP, SERVICE_TYPE_MAP } from './constants';

@@ -41,24 +41,27 @@ import PhoneInputArea from '../PhoneInputArea';
 interface AuthInputAreaProps {
   // 登录模式
   loginMode: 'password' | 'code';
-  
+
   // 手机号（两种模式共用）
   phoneNumber: string;
   onPhoneNumberChange: (phoneNumber: string) => void;
   countryCode: string;
   onCountryCodePress?: () => void;
   phoneValid?: boolean;
-  
+
   // 密码模式
   password?: string;
   onPasswordChange?: (password: string) => void;
   passwordValid?: boolean;
-  
+
   // 验证码模式
   code?: string;
   onCodeChange?: (code: string) => void;
   codeValid?: boolean;
-  
+
+  // 自动聚焦
+  autoFocus?: boolean;
+
   // 样式
   style?: StyleProp<ViewStyle>;
 }
@@ -165,6 +168,7 @@ const AuthInputArea: React.FC<AuthInputAreaProps> = ({
   code = '',
   onCodeChange,
   codeValid,
+  autoFocus = false,
   style,
 }) => {
   const fadeAnim = useAuthInputAnimation(loginMode);
@@ -182,6 +186,7 @@ const AuthInputArea: React.FC<AuthInputAreaProps> = ({
         countryCode={countryCode}
         onCountryCodePress={onCountryCodePress}
         phoneValid={phoneValid}
+        autoFocus={autoFocus}
         style={styles.phoneInput}
       />
       

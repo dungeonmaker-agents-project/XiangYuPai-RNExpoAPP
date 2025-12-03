@@ -1,9 +1,13 @@
 /**
  * UserListArea - 用户列表区域组件
- * 
+ *
+ * 支持两种数据模式：
+ * 1. 用户卡片模式 (users: UserCard[]) - 展示用户信息卡片
+ * 2. 动态流模式 (feedItems: FeedItemData[]) - 展示动态内容流
+ *
  * TOC (快速跳转):
  * [1] Imports
- * [2] Types & Schema  
+ * [2] Types & Schema
  * [3] Constants & Config
  * [4] Utils & Helpers
  * [5] State Management
@@ -24,17 +28,28 @@ import {
 
 // 内部模块导入
 import { COLORS } from '../constants';
-import type { UserCard } from '../types';
+import type { UserCard, FeedItem } from '../types';
 import UserCardComponent from './UserCardComponent';
+import FeedCardComponent from './FeedCardComponent';
 import { processListData } from './processData';
 import { utilsListLayout } from './utilsLayout';
 // #endregion
 
 // #region 2. Types & Schema
+/**
+ * FeedItemData 类型别名，保持向后兼容
+ */
+export type FeedItemData = FeedItem;
+
 interface UserListAreaProps {
-  users: UserCard[];
+  /** 用户数据（旧模式，向后兼容） */
+  users?: UserCard[];
+  /** 动态流数据（新模式，优先使用） */
+  feedItems?: FeedItem[];
   loading: boolean;
-  onUserPress: (user: UserCard) => void;
+  onUserPress?: (user: UserCard) => void;
+  onFeedPress?: (feed: FeedItem) => void;
+  onFeedUserPress?: (userId: string) => void;
   onEndReached?: () => void;
   refreshing?: boolean;
   onRefresh?: () => void;
@@ -47,11 +62,8 @@ const LIST_CONFIG = {
   initialNumToRender: 10,
   maxToRenderPerBatch: 5,
   windowSize: 10,
-  getItemLayout: (data: any, index: number) => ({
-    length: 120,
-    offset: 120 * index,
-    index,
-  }),
+  // 注意：移除 getItemLayout，因为有 ListHeaderComponent 时会导致偏移量计算错误
+  // 让 FlatList 自动计算每个项目的位置
 } as const;
 // #endregion
 
@@ -69,28 +81,67 @@ const LIST_CONFIG = {
 
 // #region 7. UI Components & Rendering
 /**
- * UserListArea 组件 - 用户列表区域
- * 展示用户卡片的垂直滚动列表
+ * UserListArea 组件 - 用户列表/动态流区域
+ * 自动识别数据类型并渲染对应的卡片组件
  */
 const UserListArea: React.FC<UserListAreaProps> = ({
   users,
+  feedItems,
   loading,
   onUserPress,
+  onFeedPress,
+  onFeedUserPress,
   onEndReached,
   refreshing = false,
   onRefresh,
   ListHeaderComponent,
 }) => {
-  const processedUsers = processListData(users);
+  // 判断使用哪种数据模式：优先使用 feedItems
+  const useFeedMode = feedItems && feedItems.length > 0;
+  const useUserMode = !useFeedMode && users && users.length > 0;
+
+  // 调试日志
+  console.log('[UserListArea] 📊 数据状态', {
+    feedItemsCount: feedItems?.length || 0,
+    usersCount: users?.length || 0,
+    useFeedMode,
+    useUserMode,
+    loading,
+  });
+
+  // 处理用户数据（仅在用户模式下使用）
+  const processedUsers = useUserMode ? processListData(users || []) : [];
+
+  // 🔥 详细调试：输出处理后的用户数据
+  console.log('[UserListArea] 🔥 processedUsers', {
+    count: processedUsers.length,
+    firstUser: processedUsers[0] ? {
+      id: processedUsers[0].id,
+      username: processedUsers[0].username,
+      avatar: processedUsers[0].avatar?.substring(0, 50),
+    } : null,
+  });
+
   const { getListStyle, getContentStyle } = utilsListLayout();
 
+  // 渲染用户卡片项
   const renderUserItem = useCallback(({ item }: { item: UserCard }) => (
-    <UserCardComponent 
-      user={item} 
-      onPress={() => onUserPress(item)} 
+    <UserCardComponent
+      user={item}
+      onPress={() => onUserPress?.(item)}
     />
   ), [onUserPress]);
 
+  // 渲染动态卡片项
+  const renderFeedItem = useCallback(({ item }: { item: FeedItem }) => (
+    <FeedCardComponent
+      feed={item}
+      onPress={() => onFeedPress?.(item)}
+      onUserPress={() => onFeedUserPress?.(item.userInfo.id)}
+    />
+  ), [onFeedPress, onFeedUserPress]);
+
+  // 渲染空状态
   const renderListEmpty = useCallback(() => {
     if (loading) {
       return (
@@ -102,13 +153,15 @@ const UserListArea: React.FC<UserListAreaProps> = ({
     }
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>暂无用户</Text>
+        <Text style={styles.emptyText}>{useFeedMode ? '暂无动态' : '暂无用户'}</Text>
       </View>
     );
-  }, [loading]);
+  }, [loading, useFeedMode]);
 
+  // 渲染列表底部
   const renderListFooter = useCallback(() => {
-    if (loading && users.length > 0) {
+    const dataLength = useFeedMode ? (feedItems?.length || 0) : (users?.length || 0);
+    if (loading && dataLength > 0) {
       return (
         <View style={styles.footerContainer}>
           <ActivityIndicator size="small" color={COLORS.primary} />
@@ -117,17 +170,47 @@ const UserListArea: React.FC<UserListAreaProps> = ({
       );
     }
     return null;
-  }, [loading, users.length]);
+  }, [loading, useFeedMode, feedItems?.length, users?.length]);
 
-  const keyExtractor = useCallback((item: UserCard, index: number) => 
-    item.id || `user-${index}`, 
+  // 用户列表 key 提取
+  const userKeyExtractor = useCallback((item: UserCard, index: number) =>
+    item.id || `user-${index}`,
   []);
 
+  // 动态列表 key 提取
+  const feedKeyExtractor = useCallback((item: FeedItem, index: number) =>
+    item.id || `feed-${index}`,
+  []);
+
+  // 根据数据模式渲染对应的列表
+  if (useFeedMode) {
+    return (
+      <View style={[styles.container, getListStyle()]}>
+        <FlatList
+          data={feedItems}
+          keyExtractor={feedKeyExtractor}
+          renderItem={renderFeedItem}
+          ListHeaderComponent={ListHeaderComponent}
+          ListEmptyComponent={renderListEmpty}
+          ListFooterComponent={renderListFooter}
+          contentContainerStyle={[styles.listContent, getContentStyle()]}
+          showsVerticalScrollIndicator={false}
+          onEndReached={onEndReached}
+          onEndReachedThreshold={0.1}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          {...LIST_CONFIG}
+        />
+      </View>
+    );
+  }
+
+  // 用户模式（默认）
   return (
     <View style={[styles.container, getListStyle()]}>
       <FlatList
         data={processedUsers}
-        keyExtractor={keyExtractor}
+        keyExtractor={userKeyExtractor}
         renderItem={renderUserItem}
         ListHeaderComponent={ListHeaderComponent}
         ListEmptyComponent={renderListEmpty}
@@ -181,5 +264,6 @@ const styles = StyleSheet.create({
 
 // #region 9. Exports
 export default UserListArea;
-export type { UserListAreaProps };
+export type { UserListAreaProps, FeedItemData };
+export { FeedCardComponent } from './FeedCardComponent';
 // #endregion

@@ -104,6 +104,12 @@ const COUNTRIES: Country[] = [
   { id: '13', name: '新加坡', nameEn: 'Singapore', code: '+65', flag: '🇸🇬' },
   { id: '14', name: '马来西亚', nameEn: 'Malaysia', code: '+60', flag: '🇲🇾' },
 ];
+
+// 预设仅显示的几个地区（无搜索时）
+const PRESET_CODES = ['+86', '+852', '+1', '+81', '+65', '+44'] as const;
+const PRESET_COUNTRIES: Country[] = COUNTRIES.filter(c =>
+  PRESET_CODES.includes(c.code as any)
+);
 // #endregion
 
 // #region 6. Utils & Helpers
@@ -312,19 +318,24 @@ const RegionSelectModal: React.FC<RegionSelectModalProps> = ({
   
   // 过滤后的国家列表
   const filteredCountries = useMemo(() => {
+    // 有搜索时用完整数据过滤；无搜索时只展示预设的少数地区
+    if (!searchKeyword) return PRESET_COUNTRIES;
     return filterCountries(COUNTRIES, searchKeyword);
   }, [searchKeyword]);
   
   // 热门地区
   const hotCountries = useMemo(() => {
+    // 无搜索时，用预设的少数地区作为“热门”；搜索时不显示热门
     if (searchKeyword) return [];
-    return getHotCountries(COUNTRIES);
+    return PRESET_COUNTRIES;
   }, [searchKeyword]);
   
   // 分组后的国家列表
   const sections = useMemo(() => {
-    return groupCountries(filteredCountries);
-  }, [filteredCountries]);
+    // 仅在搜索时展示完整分组列表；无搜索时不渲染分组（保持为空）
+    if (!searchKeyword) return [] as CountrySection[];
+    return groupCountries(filterCountries(COUNTRIES, searchKeyword));
+  }, [searchKeyword]);
   
   // 选择国家
   const handleSelect = useCallback((country: Country) => {
@@ -363,8 +374,8 @@ const RegionSelectModal: React.FC<RegionSelectModalProps> = ({
         
         <View style={styles.modalContainer}>
           <SafeAreaView style={styles.safeArea}>
-            {/* 顶部导航栏 */}
-            <Header onClose={onClose} />
+            {/* 顶部导航隐藏 */}
+            {/* <Header onClose={onClose} /> */}
             
             {/* 搜索栏 */}
             <SearchBar
@@ -382,22 +393,24 @@ const RegionSelectModal: React.FC<RegionSelectModalProps> = ({
               />
             )}
             
-            {/* 国家列表 */}
-            <SectionList
-              sections={sections}
-              keyExtractor={(item) => item.id}
-              renderItem={renderItem}
-              renderSectionHeader={renderSectionHeader}
-              stickySectionHeadersEnabled
-              showsVerticalScrollIndicator={false}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={() => (
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>未找到相关地区</Text>
-                </View>
-              )}
-            />
+            {/* 国家列表（仅在搜索时显示分组结果） */}
+            {sections.length > 0 && (
+              <SectionList
+                sections={sections}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                renderSectionHeader={renderSectionHeader}
+                stickySectionHeadersEnabled
+                showsVerticalScrollIndicator={false}
+                style={styles.list}
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={() => (
+                  <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>未找到相关地区</Text>
+                  </View>
+                )}
+              />
+            )}
           </SafeAreaView>
         </View>
       </View>

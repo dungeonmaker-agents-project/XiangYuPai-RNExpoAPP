@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+    Alert,
     Image,
     SafeAreaView,
     ScrollView,
@@ -45,6 +46,9 @@ import PendingStatusArea from './PendingStatusArea';
 // 类型和常量
 import { COLORS, ORDER_STATUS_CONFIG } from './constants';
 import type { OrderDetail } from './types';
+
+// API服务
+import { orderApi, type OrderStatusParams, type CancelOrderParams } from '../../Homepage/ServiceFlow/orderApi';
 // #endregion
 
 // #region 3. Types & Schema
@@ -178,9 +182,21 @@ const useOrderDetailLogic = () => {
   /**
    * 取消订单
    */
-  const handleCancelOrder = useCallback((orderId: string) => {
-    console.log('取消订单:', orderId);
-    // TODO: 调用取消订单API
+  const handleCancelOrder = useCallback(async (orderId: string) => {
+    try {
+      // TODO: 替换为真实API调用
+      // const response = await orderApi.cancelOrder({ orderId });
+      
+      // 使用Mock数据
+      console.log('取消订单:', orderId);
+      Alert.alert('成功', '订单已取消');
+      
+      // 刷新订单详情
+      // 可以重新加载订单状态
+    } catch (error) {
+      console.error('取消订单失败:', error);
+      Alert.alert('错误', error instanceof Error ? error.message : '取消订单失败，请重试');
+    }
   }, []);
   
   /**

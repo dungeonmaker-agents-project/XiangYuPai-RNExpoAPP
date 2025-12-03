@@ -1,6 +1,6 @@
 /**
  * Profile API - 用户资料相关API接口
- * 
+ *
  * 对接后端：xypai-user模块
  * - 用户资料查询和更新
  * - 在线状态管理
@@ -8,6 +8,11 @@
  * - 用户统计数据
  * - 职业标签管理
  * - 用户关系（关注/粉丝）
+ *
+ * 测试文件参考:
+ * - AppProfilePageTest.java - 个人主页测试
+ * - AppOtherUserProfilePageTest.java - 他人主页测试
+ * - AppEditProfilePageTest.java - 编辑资料测试
  */
 
 import { apiClient } from './client';
@@ -197,6 +202,144 @@ export interface OccupationDictVO {
   hasIcon: boolean;
 }
 
+// ==================== 页面专用类型定义 ====================
+
+/**
+ * 用户统计数据（页面版）
+ */
+export interface ProfilePageStats {
+  followingCount: number;
+  fansCount: number;
+  likesCount: number;
+  momentsCount?: number;
+  postsCount?: number;
+  collectionsCount?: number;
+  skillsCount?: number;
+  ordersCount?: number;
+}
+
+/**
+ * 隐私设置
+ */
+export interface PrivacySettings {
+  showAge: boolean;
+  showHeight: boolean;
+  showWeight: boolean;
+}
+
+/**
+ * 编辑资料页面数据
+ * 对应接口: GET /api/user/profile/edit
+ */
+export interface ProfileEditData {
+  userId: number;
+  nickname: string;
+  avatar: string | null;
+  gender: 'male' | 'female' | 'other' | null;
+  birthday: string | null;
+  residence: string | null;
+  height: number | null;
+  weight: number | null;
+  occupation: string | null;
+  wechat: string | null;
+  bio: string | null;
+  isOnline: boolean;
+  stats: ProfilePageStats;
+  followStatus?: string;
+  privacy?: PrivacySettings;
+  canViewProfile?: boolean;
+  canViewMoments?: boolean;
+  canViewSkills?: boolean;
+}
+
+/**
+ * 主页头部数据
+ * 对应接口: GET /api/user/profile/header
+ */
+export interface ProfileHeaderData {
+  userId: number;
+  nickname: string;
+  avatar: string | null;
+  backgroundImage?: string | null;
+  gender: 'male' | 'female' | 'other' | null;
+  age?: number | null;
+  bio: string | null;
+  isOnline: boolean;
+  isVerified?: boolean;
+  verifiedType?: 'official' | 'creator' | 'merchant' | null;
+  stats: ProfilePageStats;
+  tags?: string[];
+  level?: number;
+  memberType?: 'normal' | 'vip' | 'svip';
+}
+
+/**
+ * 他人主页数据
+ * 对应接口: GET /api/user/profile/other/{userId}
+ */
+export interface OtherUserProfileData extends ProfileHeaderData {
+  followStatus: 'none' | 'following' | 'followed' | 'mutual';
+  isBlocked?: boolean;
+  canViewProfile: boolean;
+  canViewMoments: boolean;
+  canViewSkills: boolean;
+  skills?: SkillBrief[];
+}
+
+/**
+ * 技能简要信息
+ */
+export interface SkillBrief {
+  skillId: number;
+  skillName: string;
+  skillType?: 'online' | 'offline';
+  coverImage?: string;
+  price?: number;
+  priceUnit?: string;
+  rating?: number;
+}
+
+/**
+ * 资料详情数据
+ * 对应接口: GET /api/user/profile/info
+ */
+export interface ProfileInfoData extends ProfileEditData {
+  age?: number | null;
+  constellation?: string | null;
+  hometown?: string | null;
+  education?: string | null;
+  school?: string | null;
+  company?: string | null;
+  interests?: string[];
+  skills?: SkillBrief[];
+  certifications?: Certification[];
+}
+
+/**
+ * 认证信息
+ */
+export interface Certification {
+  type: 'identity' | 'occupation' | 'education';
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedAt?: string;
+}
+
+/**
+ * 分页查询参数
+ */
+export interface PageQuery {
+  page?: number;
+  pageSize?: number;
+}
+
+/**
+ * 头像上传响应
+ */
+export interface AvatarUploadResponse {
+  avatarUrl: string;
+  thumbnailUrl?: string;
+}
+
 // #endregion
 
 // #region API实现
@@ -206,56 +349,51 @@ export interface OccupationDictVO {
  */
 class ProfileAPI {
   /**
-   * 获取用户资料（完整版42字段）
-   * GET /api/v2/user/profile/{userId}
+   * 获取用户资料（他人主页）
+   * GET /xypai-user/api/user/profile/other/{userId}
+   * ⚠️ 注意：实际后端接口路径
    */
   async getUserProfile(userId: number): Promise<UserProfileVO> {
     console.log('\n🔥🔥🔥 [PROFILE API] getUserProfile 被调用');
     console.log('🔥 参数 userId:', userId);
-    console.log('🔥 请求 URL:', `${API_ENDPOINTS.PROFILE.USER_PROFILE}/${userId}`);
-    
-    const response = await apiClient.get<UserProfileVO>(
-      `${API_ENDPOINTS.PROFILE.USER_PROFILE}/${userId}`
-    );
-    
+
+    // ✅ 使用正确的后端接口: /api/user/profile/other/{userId}
+    const url = `${API_ENDPOINTS.PROFILE_PAGE.OTHER}/${userId}`;
+    console.log('🔥 请求 URL:', url);
+
+    const response = await apiClient.get<UserProfileVO>(url);
+
     console.log('🔥 [PROFILE API] getUserProfile 响应成功');
     console.log('🔥 响应数据:', response.data ? '有数据' : '无数据');
-    
-    // 🔥 打印实际的响应数据结构（关键诊断）
-    console.log('\n🔥🔥🔥🔥🔥 [关键诊断] 实际响应数据:');
-    console.log('🔥 完整响应:', JSON.stringify(response, null, 2));
-    console.log('🔥 response.data 类型:', typeof response.data);
-    console.log('🔥 response.data 内容:', JSON.stringify(response.data, null, 2));
-    
+
     if (response.data) {
       console.log('🔥 response.data.nickname:', response.data.nickname);
       console.log('🔥 response.data.userId:', response.data.userId);
-      console.log('🔥 response.data.stats:', response.data.stats);
-      console.log('🔥 Object.keys(response.data):', Object.keys(response.data));
     }
-    console.log('🔥🔥🔥🔥🔥\n');
-    
+
     return response.data;
   }
-  
+
   /**
    * 获取当前用户资料
-   * GET /api/v2/user/profile/current
+   * GET /xypai-user/api/user/profile/header
+   * ⚠️ 注意：实际后端接口路径
    */
   async getCurrentUserProfile(): Promise<UserProfileVO> {
     console.log('\n🔥🔥🔥 [PROFILE API] getCurrentUserProfile 被调用');
-    console.log('🔥 请求 URL:', API_ENDPOINTS.PROFILE.CURRENT_PROFILE);
-    
-    const response = await apiClient.get<UserProfileVO>(
-      API_ENDPOINTS.PROFILE.CURRENT_PROFILE
-    );
-    
+
+    // ✅ 使用正确的后端接口: /api/user/profile/header
+    const url = API_ENDPOINTS.PROFILE_PAGE.HEADER;
+    console.log('🔥 请求 URL:', url);
+
+    const response = await apiClient.get<UserProfileVO>(url);
+
     console.log('🔥 [PROFILE API] getCurrentUserProfile 响应成功');
     console.log('🔥 响应数据:', response.data ? '有数据' : '无数据');
-    
+
     return response.data;
   }
-  
+
   /**
    * 更新用户资料
    * PUT /api/v2/user/profile/{userId}
@@ -621,6 +759,190 @@ class ProfileAPI {
     await apiClient.delete(
       `${API_ENDPOINTS.RELATION.BLOCK}/${targetUserId}`
     );
+  }
+
+  // ==================== 页面专用接口 ====================
+
+  /**
+   * 获取编辑资料页面数据
+   * GET /api/user/profile/edit
+   * 触发时机: 进入编辑资料页面
+   */
+  async getEditPageData(): Promise<ProfileEditData> {
+    console.log('\n📱 [ProfileAPI] ========== 获取编辑资料数据 ==========');
+
+    const response = await apiClient.get<ProfileEditData>(
+      API_ENDPOINTS.PROFILE_PAGE.EDIT
+    );
+
+    console.log('📱 [ProfileAPI] 编辑数据获取成功 - userId:', response.data?.userId);
+    return response.data;
+  }
+
+  /**
+   * 获取个人主页头部数据
+   * GET /api/user/profile/header
+   * 触发时机: 进入个人主页
+   */
+  async getProfileHeader(): Promise<ProfileHeaderData> {
+    console.log('\n📱 [ProfileAPI] ========== 获取主页头部数据 ==========');
+
+    const response = await apiClient.get<ProfileHeaderData>(
+      API_ENDPOINTS.PROFILE_PAGE.HEADER
+    );
+
+    console.log('📱 [ProfileAPI] 头部数据获取成功 - userId:', response.data?.userId);
+    return response.data;
+  }
+
+  /**
+   * 获取他人主页数据
+   * GET /api/user/profile/other/{userId}
+   * 触发时机: 查看他人主页
+   */
+  async getOtherUserProfile(userId: string | number): Promise<OtherUserProfileData> {
+    console.log('\n📱 [ProfileAPI] ========== 获取他人主页数据 ==========');
+    console.log('📱 目标用户ID:', userId);
+
+    const response = await apiClient.get<OtherUserProfileData>(
+      `${API_ENDPOINTS.PROFILE_PAGE.OTHER}/${userId}`
+    );
+
+    console.log('📱 [ProfileAPI] 他人主页数据获取成功 - followStatus:', response.data?.followStatus);
+    return response.data;
+  }
+
+  /**
+   * 获取个人资料详情
+   * GET /api/user/profile/info
+   * 触发时机: 点击"资料"Tab
+   */
+  async getProfileInfo(): Promise<ProfileInfoData> {
+    console.log('\n📱 [ProfileAPI] ========== 获取资料详情 ==========');
+
+    const response = await apiClient.get<ProfileInfoData>(
+      API_ENDPOINTS.PROFILE_PAGE.INFO
+    );
+
+    console.log('📱 [ProfileAPI] 资料详情获取成功 - userId:', response.data?.userId);
+    return response.data;
+  }
+
+  // ==================== 单字段更新接口 ====================
+
+  /**
+   * 更新昵称
+   * PUT /api/user/profile/nickname
+   * @param nickname - 新昵称 (2-20字符)
+   */
+  async updateNickname(nickname: string): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新昵称:', nickname);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_NICKNAME, { nickname });
+  }
+
+  /**
+   * 更新性别
+   * PUT /api/user/profile/gender
+   * @param gender - 性别: 'male' | 'female' | 'other'
+   */
+  async updateGender(gender: 'male' | 'female' | 'other'): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新性别:', gender);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_GENDER, { gender });
+  }
+
+  /**
+   * 更新生日
+   * PUT /api/user/profile/birthday
+   * @param birthday - 生日，格式: YYYY-MM-DD
+   */
+  async updateBirthday(birthday: string): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新生日:', birthday);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_BIRTHDAY, { birthday });
+  }
+
+  /**
+   * 更新居住地
+   * PUT /api/user/profile/residence
+   * @param residence - 居住地地址
+   */
+  async updateResidence(residence: string): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新居住地:', residence);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_RESIDENCE, { residence });
+  }
+
+  /**
+   * 更新身高
+   * PUT /api/user/profile/height
+   * @param height - 身高(cm)，范围100-250
+   */
+  async updateHeight(height: number): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新身高:', height);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_HEIGHT, { height });
+  }
+
+  /**
+   * 更新体重
+   * PUT /api/user/profile/weight
+   * @param weight - 体重(kg)，范围30-200
+   */
+  async updateWeight(weight: number): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新体重:', weight);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_WEIGHT, { weight });
+  }
+
+  /**
+   * 更新职业
+   * PUT /api/user/profile/occupation
+   * @param occupation - 职业名称
+   */
+  async updateOccupation(occupation: string): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新职业:', occupation);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_OCCUPATION, { occupation });
+  }
+
+  /**
+   * 更新微信号
+   * PUT /api/user/profile/wechat
+   * @param wechat - 微信号 (6-20字符)
+   */
+  async updateWechat(wechat: string): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新微信号:', wechat);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_WECHAT, { wechat });
+  }
+
+  /**
+   * 更新个性签名
+   * PUT /api/user/profile/bio
+   * @param bio - 个性签名 (最多200字符)
+   */
+  async updateBio(bio: string): Promise<void> {
+    console.log('📱 [ProfileAPI] 更新个性签名:', bio);
+    await apiClient.put(API_ENDPOINTS.PROFILE_PAGE.UPDATE_BIO, { bio });
+  }
+
+  /**
+   * 上传头像
+   * POST /api/user/profile/avatar/upload
+   * @param file - 图片文件
+   * @param onProgress - 上传进度回调
+   */
+  async uploadAvatar(
+    file: File | Blob,
+    onProgress?: (progress: number) => void
+  ): Promise<AvatarUploadResponse> {
+    console.log('\n📱 [ProfileAPI] ========== 上传头像 ==========');
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await apiClient.upload<AvatarUploadResponse>(
+      API_ENDPOINTS.PROFILE_PAGE.AVATAR_UPLOAD,
+      formData,
+      onProgress
+    );
+
+    console.log('📱 [ProfileAPI] 头像上传成功:', response.data?.avatarUrl);
+    return response.data;
   }
 }
 

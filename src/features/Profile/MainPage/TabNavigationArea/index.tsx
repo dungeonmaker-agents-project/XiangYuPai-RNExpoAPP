@@ -1,18 +1,18 @@
 // #region 1. File Banner & TOC
 /**
  * TabNavigationArea - Tab标签栏
- * 
+ *
  * 功能：
  * - 四Tab切换（动态/收藏/点赞/资料）
  * - Tab指示器动画
- * - 吸顶固定效果（滚动时）
+ *
+ * UI设计参考：个人主页-资料.png / 个人主页-动态.png
  */
 // #endregion
 
 // #region 2. Imports
 import React from 'react';
 import {
-    Dimensions,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -21,15 +21,6 @@ import {
 import { TABS } from '../../constants';
 import { COLORS, SIZES } from '../constants';
 import type { TabNavigationAreaProps } from '../types';
-// #endregion
-
-// #region 3-5. Types, Constants & Utils
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const TAB_WIDTH = SCREEN_WIDTH / 4;
-// #endregion
-
-// #region 6-7. State & Logic
-// (简单组件)
 // #endregion
 
 // #region 8. UI Components & Rendering
@@ -72,7 +63,7 @@ const styles = StyleSheet.create({
     height: SIZES.TAB_HEIGHT,
     flexDirection: 'row',
     backgroundColor: COLORS.WHITE,
-    borderBottomWidth: 0.5,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#E5E5E5',
   },
   tab: {
@@ -83,21 +74,20 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 15,
-    color: '#999999',
+    color: '#9CA3AF',
+    fontWeight: '400',
   },
   tabTextActive: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#333333',
+    color: '#1F2937',
   },
   indicator: {
     position: 'absolute',
     bottom: 0,
-    left: '50%',
-    marginLeft: -15,
-    width: 30,
+    width: 24,
     height: 3,
-    backgroundColor: '#8A2BE2',
+    backgroundColor: '#8B5CF6',
     borderRadius: 1.5,
   },
 });

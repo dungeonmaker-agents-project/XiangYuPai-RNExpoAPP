@@ -158,60 +158,60 @@ export const DISCOVERY_SIZES = {
 
 // #region 3. Waterfall Configuration
 /**
- * 瀑布流配置
+ * 瀑布流配置 - 基于UI设计文档
  * 核心布局参数
  */
 export const WATERFALL_CONFIG = {
   // 列配置
   NUM_COLUMNS: 2,           // 双列布局
-  COLUMN_GAP: 8,            // 列间距
-  
-  // 间距配置
-  HORIZONTAL_PADDING: 12,   // 左右边距
-  VERTICAL_SPACING: 12,     // 卡片垂直间距
-  
+  COLUMN_GAP: 8,            // 列间距 (文档要求 gap-8px)
+
+  // 间距配置 - 基于UI文档
+  HORIZONTAL_PADDING: 8,    // 左右边距 (文档要求 padding-8px)
+  VERTICAL_SPACING: 8,      // 卡片垂直间距
+
   // 加载配置
   ON_END_REACHED_THRESHOLD: 0.5,  // 滚动到50%时触发加载
   INITIAL_NUM_TO_RENDER: 10,      // 初始渲染数量
   MAX_TO_RENDER_PER_BATCH: 10,    // 每批最多渲染数量
   WINDOW_SIZE: 10,                 // 虚拟化窗口大小
-  
+
   // 高度估算配置
   DEFAULT_IMAGE_RATIO: 1.2,        // 默认图片比例（高/宽）
-  BOTTOM_INFO_HEIGHT: 80,          // 底部信息区域高度
-  CARD_PADDING: 12,                // 卡片内边距
-  
+  BOTTOM_INFO_HEIGHT: 60,          // 底部信息区域高度（调整为更紧凑）
+  CARD_PADDING: 8,                 // 卡片内边距 (文档要求 8px)
+
   // 性能优化
   REMOVE_CLIPPED_SUBVIEWS: true,   // 移除屏幕外视图
   UPDATE_CELLS_BATCH_PERIOD: 50,   // 批量更新周期（ms）
 } as const;
 
 /**
- * FeedCard尺寸配置
+ * FeedCard尺寸配置 - 基于UI设计文档
  */
 export const FEED_CARD_SIZES = {
-  // 卡片配置
-  BORDER_RADIUS: 12,
-  SHADOW_RADIUS: 8,
-  SHADOW_OPACITY: 0.1,
-  ELEVATION: 3,
-  
+  // 卡片配置 - 文档要求圆角8px
+  BORDER_RADIUS: 8,
+  SHADOW_RADIUS: 4,
+  SHADOW_OPACITY: 0.08,
+  ELEVATION: 2,
+
   // 图片配置
-  IMAGE_BORDER_RADIUS: 12,
-  IMAGE_MIN_HEIGHT: 150,
-  IMAGE_MAX_HEIGHT: 600,
-  
-  // 用户信息
+  IMAGE_BORDER_RADIUS: 8,
+  IMAGE_MIN_HEIGHT: 120,
+  IMAGE_MAX_HEIGHT: 500,
+
+  // 用户信息 - 文档要求24x24
   AVATAR_SIZE: 24,
   AVATAR_BORDER_RADIUS: 12,
-  
-  // 互动按钮
-  ACTION_ICON_SIZE: 16,
-  ACTION_BUTTON_PADDING: 8,
-  
-  // 间距
-  CONTENT_PADDING: 12,
-  BOTTOM_PADDING: 12,
+
+  // 互动按钮 - 文档要求12sp
+  ACTION_ICON_SIZE: 14,
+  ACTION_BUTTON_PADDING: 4,
+
+  // 间距 - 文档要求8px
+  CONTENT_PADDING: 8,
+  BOTTOM_PADDING: 8,
   USER_INFO_MARGIN: 6,
 } as const;
 
@@ -232,11 +232,12 @@ export const RANDOM_HEIGHT_RATIOS = [
 // #region 4. Tab Configuration
 /**
  * Tab类型定义
+ * 注：BFF API 使用 'nearby'，前端UI显示为"同城"
  */
 export const TAB_TYPES = {
   FOLLOW: 'follow',
   HOT: 'hot',
-  LOCAL: 'local',
+  NEARBY: 'nearby',
 } as const;
 
 /**
@@ -247,14 +248,14 @@ export const TAB_CONFIG = {
   LABELS: {
     [TAB_TYPES.FOLLOW]: '关注',
     [TAB_TYPES.HOT]: '热门',
-    [TAB_TYPES.LOCAL]: '本地',
+    [TAB_TYPES.NEARBY]: '同城',
   },
-  
+
   // Tab图标（可选）
   ICONS: {
     [TAB_TYPES.FOLLOW]: '👥',
     [TAB_TYPES.HOT]: '🔥',
-    [TAB_TYPES.LOCAL]: '📍',
+    [TAB_TYPES.NEARBY]: '📍',
   },
   
   // 默认Tab
@@ -281,7 +282,7 @@ export const DISCOVERY_DATA_CONFIG = {
   PAGE_SIZE: {
     [TAB_TYPES.FOLLOW]: 20,
     [TAB_TYPES.HOT]: 20,
-    [TAB_TYPES.LOCAL]: 20,
+    [TAB_TYPES.NEARBY]: 20,
   },
   
   // 加载配置
@@ -312,7 +313,7 @@ export const DISCOVERY_API_CONFIG = {
   ENDPOINTS: {
     FOLLOW: '/xypai-content/api/v1/discovery/follow',
     HOT: '/xypai-content/api/v1/discovery/hot',
-    LOCAL: '/xypai-content/api/v1/discovery/local',
+    NEARBY: '/xypai-content/api/v1/discovery/nearby',
   },
   
   // 超时配置
@@ -402,7 +403,7 @@ export const DISCOVERY_DEFAULTS = {
   EMPTY_MESSAGES: {
     [TAB_TYPES.FOLLOW]: '关注的人还没有发布动态',
     [TAB_TYPES.HOT]: '暂无热门内容',
-    [TAB_TYPES.LOCAL]: '附近暂无动态',
+    [TAB_TYPES.NEARBY]: '附近暂无动态',
     default: '暂无动态',
   },
 } as const;

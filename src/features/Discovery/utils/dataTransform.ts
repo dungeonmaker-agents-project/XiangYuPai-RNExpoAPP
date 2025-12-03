@@ -9,7 +9,7 @@
  * - 数据格式化
  */
 
-import type { CommentItem, FeedListItem } from '@/services/api/discoveryApi';
+import type { CommentItem, DiscoverContentItemVO, FeedListItem } from '@/services/api/discoveryApi';
 import type { Comment, Feed } from '../types';
 
 // ==================== 动态数据转换 ====================
@@ -96,6 +96,91 @@ export const transformFeedListItemToFeed = (item: FeedListItem): Feed => {
  */
 export const transformFeedList = (items: FeedListItem[]): Feed[] => {
   return items.map(transformFeedListItemToFeed);
+};
+
+// ==================== BFF响应数据转换 ====================
+
+/**
+ * 将BFF的DiscoverContentItemVO转换为前端Feed
+ *
+ * BFF响应格式与旧API不同，需要单独转换
+ */
+export const transformDiscoverContentItemToFeed = (item: DiscoverContentItemVO): Feed => {
+  return {
+    id: item.id,
+    userId: item.authorData.userId,
+
+    // 内容信息
+    type: item.type === 'video' ? 2 : 1, // video=2, image=1
+    typeDesc: item.type === 'video' ? '视频' : '图片',
+    title: item.textData.title,
+    summary: item.textData.content || item.textData.title,
+    content: item.textData.content || item.textData.title,
+    coverImage: item.mediaData.coverUrl,
+
+    // 用户信息
+    userInfo: {
+      id: item.authorData.userId,
+      nickname: item.authorData.nickname,
+      avatar: item.authorData.avatar,
+      isFollowed: false, // TODO: 从关注状态获取
+      tags: [],
+    },
+
+    // 媒体列表
+    mediaList: item.mediaData.coverUrl ? [{
+      id: `media-${item.id}`,
+      type: item.type as 'image' | 'video',
+      url: item.mediaData.coverUrl,
+      width: item.mediaData.width || 800,
+      height: item.mediaData.height || 600,
+      duration: item.mediaData.duration,
+      aspectRatio: item.mediaData.aspectRatio,
+    }] : [],
+
+    // 话题列表
+    topicList: [],
+
+    // 地理位置
+    locationName: item.metaData.location,
+    locationAddress: undefined,
+    longitude: undefined,
+    latitude: undefined,
+    distance: item.metaData.distance,
+    cityId: undefined,
+
+    // 旧版位置信息（兼容）
+    location: item.metaData.location ? {
+      id: `loc-${item.id}`,
+      name: item.metaData.location,
+      address: '',
+      latitude: 0,
+      longitude: 0,
+      distance: item.metaData.distance,
+    } : undefined,
+
+    // 统计数据
+    likeCount: item.statsData.likeCount || 0,
+    commentCount: item.statsData.commentCount || 0,
+    shareCount: 0,
+    collectCount: item.statsData.collectCount || 0,
+    viewCount: 0,
+
+    // 用户互动状态
+    isLiked: item.statsData.isLiked || false,
+    isCollected: item.statsData.isCollected || false,
+
+    // 时间戳
+    createdAt: parseBackendDateTime(item.metaData.createTime),
+    updatedAt: Date.now(),
+  };
+};
+
+/**
+ * 批量转换BFF DiscoverContentItemVO列表
+ */
+export const transformDiscoverContentList = (items: DiscoverContentItemVO[]): Feed[] => {
+  return items.map(transformDiscoverContentItemToFeed);
 };
 
 // ==================== 评论数据转换 ====================
@@ -230,6 +315,8 @@ export const formatDistance = (meters: number): string => {
 export const dataTransformUtils = {
   transformFeedListItemToFeed,
   transformFeedList,
+  transformDiscoverContentItemToFeed,
+  transformDiscoverContentList,
   transformCommentItemToComment,
   transformCommentList,
   parseBackendDateTime,

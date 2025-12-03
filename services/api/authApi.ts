@@ -1,24 +1,25 @@
 /**
  * Auth API - 统一认证API服务
- * 
+ *
  * 🎯 对接后端: xypai-auth模块
- * 📋 文档: xypai-security/APP认证.md
+ * 📋 文档: xypai-auth/接口对接文档.md
  * 🔐 认证框架: Sa-Token + JWT
- * 
- * 功能:
- * - ✅ 密码登录 (POST /xypai-auth/api/v1/auth/login)
- * - ✅ 短信登录 (POST /xypai-auth/api/v1/auth/login/sms)
- * - ✅ 刷新令牌 (POST /xypai-auth/api/v1/auth/refresh)
- * - ✅ 用户登出 (POST /xypai-auth/api/v1/auth/logout)
- * - ✅ 发送短信 (POST /xypai-auth/api/v1/auth/sms/send)
- * - ✅ 验证短信 (POST /xypai-auth/api/v1/auth/sms/verify)
- * - ✅ 验证令牌 (GET /xypai-auth/api/v1/auth/verify)
- * - ✅ 心跳保活 (POST /xypai-auth/api/v1/auth/heartbeat)
+ *
+ * 接口清单（所有接口带 /api 前缀）：
+ * - ✅ 密码登录 (POST /xypai-auth/api/auth/login/password)
+ * - ✅ SMS登录 (POST /xypai-auth/api/auth/login/sms) - 支持自动注册
+ * - ✅ 刷新令牌 (POST /xypai-auth/api/auth/token/refresh)
+ * - ✅ 用户登出 (POST /xypai-auth/api/auth/logout)
+ * - ✅ 发送短信 (POST /xypai-auth/api/auth/sms/send)
+ * - ✅ 验证重置密码验证码 (POST /xypai-auth/api/auth/password/reset/verify)
+ * - ✅ 重置密码 (POST /xypai-auth/api/auth/password/reset/confirm)
+ *
+ * @updated 2025-11-26 - 更新所有接口路径为 /api/auth/... 格式
  */
 
 import type { ApiResponse } from './client';
 import { apiClient } from './client';
-import { buildQueryParams } from './config';
+import { API_ENDPOINTS } from './config';
 
 // ===== 后端接口类型定义（完全匹配APP认证.md）=====
 

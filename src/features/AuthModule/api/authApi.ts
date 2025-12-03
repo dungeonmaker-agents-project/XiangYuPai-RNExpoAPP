@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Auth API - 认证相关API接口
  * 
  * 提供完整的认证API服务：
@@ -72,13 +72,13 @@ interface LogoutRequest {
 }
 
 /**
- * 通用API响应格式
+ * 通用API响应格式（后端标准格式）
  */
 interface ApiResponse<T = any> {
-  success: boolean;
-  data: T;
-  message: string;
-  code?: string;
+  code: number;           // 200=成功，其他=失败
+  message: string;        // 提示信息
+  data: T | null;        // 响应数据
+  msg?: string;          // 备用消息字段
   timestamp?: string;
 }
 
@@ -87,28 +87,45 @@ interface ApiResponse<T = any> {
 // #region API配置
 
 /**
- * API端点配置
+ * API端点配置（与后端实际接口对应）
+ *
+ * Gateway路由规则：
+ * - 前端请求: /xypai-auth/api/auth/xxx
+ * - Gateway StripPrefix=1 后转发到后端: /api/auth/xxx
+ *
+ * @see ruoyi-gateway.yml 路由配置
  */
 const API_ENDPOINTS = {
-  // 认证相关
-  PASSWORD_LOGIN: '/auth/login/password',
-  SMS_LOGIN: '/auth/login/sms',
-  REFRESH_TOKEN: '/auth/token/refresh',
-  LOGOUT: '/auth/logout',
-  
-  // 用户相关
-  CHECK_USER_EXISTS: '/auth/user/exists',
-  USER_PROFILE: '/auth/user/profile',
-  
-  // 验证码相关
-  SEND_LOGIN_CODE: '/auth/sms/login',
-  SEND_REGISTER_CODE: '/auth/sms/register',
-  VERIFY_CODE: '/auth/sms/verify',
-  
-  // 密码重置相关
-  SEND_RESET_CODE: '/auth/sms/reset',
-  VERIFY_RESET_CODE: '/auth/reset/verify-code',
-  RESET_PASSWORD: '/auth/reset/password',
+  // ============================================
+  // 认证相关（xypai-auth服务）- 已实现 ✅
+  // ============================================
+  PASSWORD_LOGIN: '/xypai-auth/api/auth/login/password',        // 密码登录
+  SMS_LOGIN: '/xypai-auth/api/auth/login/sms',                  // SMS验证码登录（自动注册）
+  REFRESH_TOKEN: '/xypai-auth/api/auth/token/refresh',          // Token刷新
+  LOGOUT: '/xypai-auth/api/auth/logout',                        // 登出
+
+  // ============================================
+  // 验证码相关（xypai-auth服务）- 已实现 ✅
+  // ============================================
+  SEND_SMS: '/xypai-auth/api/auth/sms/send',                    // 发送验证码（LOGIN/RESET_PASSWORD）
+
+  // ============================================
+  // 密码重置相关（xypai-auth服务）- 已实现 ✅
+  // ============================================
+  VERIFY_RESET_CODE: '/xypai-auth/api/auth/password/reset/verify',    // 验证重置密码验证码
+  RESET_PASSWORD: '/xypai-auth/api/auth/password/reset/confirm',      // 重置密码
+
+  // ============================================
+  // 用户相关（xypai-user服务）
+  // ============================================
+  USER_PROFILE: '/xypai-user/api/v1/user/profile',          // 获取用户资料（需登录）
+
+  // ============================================
+  // 以下接口后端暂未实现，前端暂不使用
+  // 如需使用请先在后端添加对应接口
+  // ============================================
+  CHECK_USER_EXISTS: '/xypai-auth/api/auth/user/exists',        // [未实现] 检查用户是否存在
+  VERIFY_CODE: '/xypai-auth/api/auth/sms/verify',               // [未实现] 单独验证验证码
 } as const;
 
 /**
@@ -301,50 +318,149 @@ const validator = {
  */
 class AuthAPI {
   /**
-   * 通用登录方法
+   * 密码登录
+   *
+   * @param countryCode 国家区号，例如："+86"
+   * @param mobile 手机号，例如："13147046323"
+   * @param password 密码，6-20位字符
+   * @param agreeToTerms 用户协议勾选状态，必须为true
    */
-  async login(request: LoginRequest): Promise<LoginResponse> {
+  async passwordLogin(
+    countryCode: string,
+    mobile: string,
+    password: string,
+    agreeToTerms: boolean = true
+  ): Promise<ApiResponse<{ token: string; userId: string; nickname: string; avatar?: string }>> {
     // 参数验证
-    if (!validator.phone(request.phone, request.region)) {
+    if (!validator.phone(mobile, countryCode)) {
       throw new Error('手机号格式不正确');
     }
-    
-    if (!validator.region(request.region)) {
-      throw new Error('地区代码不正确');
+
+    if (!validator.password(password)) {
+      throw new Error('密码长度至少6位');
     }
-    
-    // 根据登录类型选择不同的端点
-    let endpoint: string;
-    const requestData: any = {
-      phone: request.phone,
-      region: request.region,
-      deviceId: request.deviceId,
+
+    // 构造请求数据
+    const requestData = {
+      countryCode,
+      mobile,
+      password,
+      agreeToTerms,
     };
-    
+
+    // 执行登录请求
+    const response = await retryHandler.execute(
+      () => apiClient.post(API_ENDPOINTS.PASSWORD_LOGIN, requestData)
+    );
+
+    return response;
+  }
+
+  /**
+   * SMS验证码登录（自动注册）
+   *
+   * @param countryCode 国家区号
+   * @param phoneNumber 手机号（兼容参数名）
+   * @param verificationCode 6位验证码
+   * @param agreeToTerms 用户协议勾选状态，必须为true
+   * @returns 包含isNewUser标记的登录响应
+   */
+  async smsLogin(
+    countryCode: string,
+    phoneNumber: string,
+    verificationCode: string,
+    agreeToTerms: boolean = true
+  ): Promise<ApiResponse<{
+    token: string;
+    userId: string;
+    nickname: string;
+    avatar?: string;
+    isNewUser: boolean;  // ⭐ 关键字段：true=新用户需完善资料，false=老用户跳转主页
+  }>> {
+    // 参数验证
+    if (!validator.phone(phoneNumber, countryCode)) {
+      throw new Error('手机号格式不正确');
+    }
+
+    if (!validator.code(verificationCode)) {
+      throw new Error('验证码格式不正确');
+    }
+
+    // 构造请求数据（后端期望mobile字段）
+    const requestData = {
+      countryCode,
+      mobile: phoneNumber,  // 后端使用mobile字段
+      verificationCode,
+      agreeToTerms,
+    };
+
+    // 执行登录请求
+    const response = await retryHandler.execute(
+      () => apiClient.post(API_ENDPOINTS.SMS_LOGIN, requestData)
+    );
+
+    return response;
+  }
+
+  /**
+   * 通用登录方法（兼容旧接口）
+   * @deprecated 建议使用 passwordLogin 或 smsLogin
+   */
+  async login(request: LoginRequest): Promise<LoginResponse> {
+    // 兼容旧代码：根据登录类型调用对应方法
     if (request.password) {
-      // 密码登录
-      if (!validator.password(request.password)) {
-        throw new Error('密码长度至少6位');
-      }
-      endpoint = API_ENDPOINTS.PASSWORD_LOGIN;
-      requestData.password = request.password;
+      const result = await this.passwordLogin(
+        request.region,
+        request.phone,
+        request.password,
+        true
+      );
+      // 转换为旧格式
+      return {
+        success: result.code === 200,
+        message: result.message,
+        data: {
+          token: result.data?.token || '',
+          refreshToken: '', // 后端暂未返回
+          userInfo: {
+            id: result.data?.userId || '',
+            phone: request.phone,
+            nickname: result.data?.nickname || '',
+            avatar: result.data?.avatar || '',
+            verified: true,
+            createdAt: new Date().toISOString(),
+          },
+          expiresIn: 3600,
+        },
+      };
     } else if (request.smsCode) {
-      // 验证码登录
-      if (!validator.code(request.smsCode)) {
-        throw new Error('验证码格式不正确');
-      }
-      endpoint = API_ENDPOINTS.SMS_LOGIN;
-      requestData.smsCode = request.smsCode;
+      const result = await this.smsLogin(
+        request.region,
+        request.phone,
+        request.smsCode,
+        true
+      );
+      // 转换为旧格式
+      return {
+        success: result.code === 200,
+        message: result.message,
+        data: {
+          token: result.data?.token || '',
+          refreshToken: '',
+          userInfo: {
+            id: result.data?.userId || '',
+            phone: request.phone,
+            nickname: result.data?.nickname || '',
+            avatar: result.data?.avatar || '',
+            verified: true,
+            createdAt: new Date().toISOString(),
+          },
+          expiresIn: 3600,
+        },
+      };
     } else {
       throw new Error('请提供密码或验证码');
     }
-    
-    // 执行登录请求
-    const response = await retryHandler.execute(
-      () => apiClient.post<LoginResponse>(endpoint, requestData)
-    );
-    
-    return response.data;
   }
   
   /**
@@ -361,7 +477,7 @@ class AuthAPI {
       () => apiClient.post<RefreshTokenResponse>(API_ENDPOINTS.REFRESH_TOKEN, request)
     );
     
-    return response.data;
+    return response;
   }
   
   /**
@@ -369,7 +485,7 @@ class AuthAPI {
    */
   async logout(request?: LogoutRequest): Promise<ApiResponse> {
     const response = await apiClient.post<ApiResponse>(API_ENDPOINTS.LOGOUT, request || {});
-    return response.data;
+    return response;
   }
   
   /**
@@ -387,7 +503,7 @@ class AuthAPI {
       request
     );
     
-    return response.data;
+    return response;
   }
   
   /**
@@ -395,49 +511,72 @@ class AuthAPI {
    */
   async getUserProfile(): Promise<ApiResponse<UserInfo>> {
     const response = await apiClient.get<ApiResponse<UserInfo>>(API_ENDPOINTS.USER_PROFILE);
-    return response.data;
+    return response;
   }
   
   /**
-   * 发送登录验证码
+   * 发送验证码（统一接口）
+   *
+   * @param countryCode 国家区号，例如："+86"
+   * @param phoneNumber 手机号，例如："13147046323"
+   * @param purpose 验证码用途："LOGIN" | "REGISTER" | "RESET_PASSWORD"
+   */
+  async sendSmsCode(
+    countryCode: string,
+    phoneNumber: string,
+    purpose: 'LOGIN' | 'REGISTER' | 'RESET_PASSWORD'
+  ): Promise<ApiResponse<null>> {
+    if (!validator.phone(phoneNumber, countryCode)) {
+      throw new Error('手机号格式不正确');
+    }
+
+    const request = {
+      countryCode,
+      phoneNumber,
+      purpose,
+    };
+
+    const response = await retryHandler.execute(
+      () => apiClient.post(API_ENDPOINTS.SEND_SMS, request)
+    );
+
+    return response;
+  }
+
+  /**
+   * 发送登录验证码（快捷方法）
    */
   async sendLoginCode(phone: string, region: string): Promise<SendCodeResponse> {
-    if (!validator.phone(phone, region)) {
-      throw new Error('手机号格式不正确');
-    }
-    
-    const request: SendCodeRequest = {
-      phone,
-      region,
-      type: 'login',
+    const result = await this.sendSmsCode(region, phone, 'LOGIN');
+
+    // 转换为旧格式（兼容）
+    return {
+      success: result.code === 200,
+      message: result.message,
+      data: {
+        codeId: 'generated_' + Date.now(),
+        expiresIn: 300,  // 5分钟
+        nextSendTime: 60, // 60秒后可重发
+      },
     };
-    
-    const response = await retryHandler.execute(
-      () => apiClient.post<SendCodeResponse>(API_ENDPOINTS.SEND_LOGIN_CODE, request)
-    );
-    
-    return response.data;
   }
-  
+
   /**
-   * 发送注册验证码
+   * 发送注册验证码（快捷方法）
    */
   async sendRegisterCode(phone: string, region: string): Promise<SendCodeResponse> {
-    if (!validator.phone(phone, region)) {
-      throw new Error('手机号格式不正确');
-    }
-    
-    const request: SendCodeRequest = {
-      phone,
-      region,
-      type: 'register',
+    const result = await this.sendSmsCode(region, phone, 'REGISTER');
+
+    // 转换为旧格式（兼容）
+    return {
+      success: result.code === 200,
+      message: result.message,
+      data: {
+        codeId: 'generated_' + Date.now(),
+        expiresIn: 300,
+        nextSendTime: 60,
+      },
     };
-    
-    const response = await retryHandler.execute(
-      () => apiClient.post<SendCodeResponse>(API_ENDPOINTS.SEND_REGISTER_CODE, request)
-    );
-    
-    return response.data;
   }
   
   /**
@@ -459,80 +598,95 @@ class AuthAPI {
     };
     
     const response = await apiClient.post<ApiResponse>(API_ENDPOINTS.VERIFY_CODE, request);
-    return response.data;
+    return response;
   }
   
   /**
-   * 发送重置密码验证码
+   * 发送重置密码验证码（快捷方法）
    */
   async sendResetPasswordCode(phone: string, region: string): Promise<SendCodeResponse> {
-    if (!validator.phone(phone, region)) {
-      throw new Error('手机号格式不正确');
-    }
-    
-    const request: SendCodeRequest = {
-      phone,
-      region,
-      type: 'reset',
+    const result = await this.sendSmsCode(region, phone, 'RESET_PASSWORD');
+
+    // 转换为旧格式（兼容）
+    return {
+      success: result.code === 200,
+      message: result.message,
+      data: {
+        codeId: 'generated_' + Date.now(),
+        expiresIn: 300,
+        nextSendTime: 60,
+      },
     };
-    
-    const response = await retryHandler.execute(
-      () => apiClient.post<SendCodeResponse>(API_ENDPOINTS.SEND_RESET_CODE, request)
-    );
-    
-    return response.data;
   }
-  
+
   /**
    * 验证重置密码验证码
+   *
+   * @param countryCode 国家区号
+   * @param phoneNumber 手机号
+   * @param verificationCode 6位验证码
    */
-  async verifyResetCode(phone: string, code: string, region: string): Promise<ApiResponse> {
-    if (!validator.phone(phone, region)) {
+  async verifyResetCode(
+    phoneNumber: string,
+    verificationCode: string,
+    countryCode: string
+  ): Promise<ApiResponse<null>> {
+    if (!validator.phone(phoneNumber, countryCode)) {
       throw new Error('手机号格式不正确');
     }
-    
-    if (!validator.code(code)) {
+
+    if (!validator.code(verificationCode)) {
       throw new Error('验证码格式不正确');
     }
-    
+
     const request = {
-      phone,
-      code,
-      region,
+      countryCode,
+      phoneNumber,
+      verificationCode,
     };
-    
-    const response = await apiClient.post<ApiResponse>(API_ENDPOINTS.VERIFY_RESET_CODE, request);
-    return response.data;
+
+    const response = await apiClient.post(API_ENDPOINTS.VERIFY_RESET_CODE, request);
+    return response;
   }
-  
+
   /**
    * 重置密码
+   *
+   * @param countryCode 国家区号
+   * @param phoneNumber 手机号
+   * @param verificationCode 6位验证码（从上一步保存）
+   * @param newPassword 新密码，6-20位字符
    */
-  async resetPassword(phone: string, code: string, newPassword: string, region: string): Promise<ApiResponse> {
-    if (!validator.phone(phone, region)) {
+  async resetPassword(
+    phoneNumber: string,
+    verificationCode: string,
+    newPassword: string,
+    countryCode: string
+  ): Promise<ApiResponse<null>> {
+    if (!validator.phone(phoneNumber, countryCode)) {
       throw new Error('手机号格式不正确');
     }
-    
-    if (!validator.code(code)) {
+
+    if (!validator.code(verificationCode)) {
       throw new Error('验证码格式不正确');
     }
-    
+
     if (!validator.password(newPassword)) {
       throw new Error('密码长度至少6位');
     }
-    
+
     const request = {
-      phone,
-      code,
+      countryCode,
+      phoneNumber,
+      verificationCode,
       newPassword,
-      region,
     };
-    
+
     const response = await retryHandler.execute(
-      () => apiClient.post<ApiResponse>(API_ENDPOINTS.RESET_PASSWORD, request)
+      () => apiClient.post(API_ENDPOINTS.RESET_PASSWORD, request)
     );
-    
-    return response.data;
+
+    return response;
   }
 }
 
@@ -661,3 +815,4 @@ export const mockAuthApi = {
 };
 
 // #endregion
+

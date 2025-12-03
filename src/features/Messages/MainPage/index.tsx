@@ -27,7 +27,10 @@ import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } 
 // 内部模块导入
 import { useMessagesStore } from '../stores';
 import type { MainPageProps } from '../types';
-import { CategoryArea, ConversationArea, NavigationArea } from './components';
+// 区域组件导入（扁平化架构）
+import { CategoryArea } from './CategoryArea';
+import { ConversationArea } from './ConversationArea';
+import { NavigationArea } from './NavigationArea';
 // #endregion
 
 // #region 3. Types & Schema

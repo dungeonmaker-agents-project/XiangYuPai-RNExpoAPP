@@ -25,10 +25,11 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import {
-    SafeAreaView,
     StatusBar,
-    StyleSheet
+    StyleSheet,
+    View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // 类型和常量
 import type { Feed, TabType } from '../types';
@@ -38,6 +39,7 @@ import type { MainPageProps } from './types';
 // 区域组件
 import ContentArea from './components/ContentArea';
 import NavigationArea from './components/NavigationArea';
+import SearchBar from './components/SearchBar';
 
 // Stores和API集成
 import { useDiscoveryStore } from '@/stores';
@@ -183,7 +185,8 @@ const useMainPageState = (props: MainPageProps) => {
   const loading = useDiscoveryStore((state) => state.ui.loading);
   const refreshing = useDiscoveryStore((state) => state.ui.refreshing);
   const error = useDiscoveryStore((state) => state.ui.error);
-  
+  const isSearching = useDiscoveryStore((state) => state.search.isSearching);
+
   // 获取Actions
   const setActiveTab = useDiscoveryStore((state) => state.setActiveTab);
   const loadFeedList = useDiscoveryStore((state) => state.loadFeedList);
@@ -191,6 +194,7 @@ const useMainPageState = (props: MainPageProps) => {
   const toggleLike = useDiscoveryStore((state) => state.toggleLike);
   const toggleCollect = useDiscoveryStore((state) => state.toggleCollect);
   const shareFeed = useDiscoveryStore((state) => state.shareFeed);
+  const enterSearchMode = useDiscoveryStore((state) => state.enterSearchMode);
   
   // 计算当前Tab的数据
   const currentFeeds = useMemo(() => {
@@ -199,8 +203,8 @@ const useMainPageState = (props: MainPageProps) => {
         return feedData.followFeeds;
       case 'hot':
         return feedData.hotFeeds;
-      case 'local':
-        return feedData.localFeeds;
+      case 'nearby':
+        return feedData.nearbyFeeds;
       default:
         return [];
     }
@@ -228,8 +232,9 @@ const useMainPageState = (props: MainPageProps) => {
     loading,
     refreshing,
     error,
+    isSearching,
     userId: props.userId,
-    
+
     // Actions
     setActiveTab,
     loadFeedList,
@@ -237,6 +242,7 @@ const useMainPageState = (props: MainPageProps) => {
     toggleLike,
     toggleCollect,
     shareFeed,
+    enterSearchMode,
   };
 };
 // #endregion
@@ -256,11 +262,13 @@ const useMainPageLogic = (props: MainPageProps) => {
     loading,
     refreshing,
     error,
+    isSearching,
     loadFeedList,
     loadMoreFeeds,
     toggleLike,
     toggleCollect,
     shareFeed,
+    enterSearchMode,
   } = state;
   
   /**
@@ -310,11 +318,19 @@ const useMainPageLogic = (props: MainPageProps) => {
   }, [activeTab, loadMoreFeeds]);
   
   /**
-   * 相机按钮点击 - 进入发布页
+   * 搜索按钮点击 - 进入搜索模式
    */
   const handleSearchPress = useCallback(() => {
-    console.log('进入发布页');
-    router.push('/publish' as any);
+    console.log('进入搜索模式');
+    enterSearchMode();
+  }, [enterSearchMode]);
+
+  /**
+   * 发布按钮点击 - 跳转到发布页面
+   */
+  const handlePublishPress = useCallback(() => {
+    console.log('进入发布页面');
+    router.push('/publish-post' as any);
   }, [router]);
   
   /**
@@ -390,11 +406,13 @@ const useMainPageLogic = (props: MainPageProps) => {
     loading,
     refreshing,
     error,
+    isSearching,
     // 事件处理
     handleTabChange,
     handleRefresh,
     handleLoadMore,
     handleSearchPress,
+    handlePublishPress,
     handleFeedPress,
     handleUserPress,
     handleTopicPress,
@@ -418,10 +436,12 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     loading,
     refreshing,
     error,
+    isSearching,
     handleTabChange,
     handleRefresh,
     handleLoadMore,
     handleSearchPress,
+    handlePublishPress,
     handleFeedPress,
     handleUserPress,
     handleTopicPress,
@@ -430,18 +450,19 @@ const MainPage: React.FC<MainPageProps> = (props) => {
     handleShare,
     handleCollect,
   } = useMainPageLogic(props);
-  
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.NAV_BACKGROUND} />
-      
+
       {/* 导航区域 */}
       <NavigationArea
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onSearchPress={handleSearchPress}
+        onPublishPress={handlePublishPress}
       />
-      
+
       {/* 内容区域 */}
       <ContentArea
         activeTab={activeTab}
@@ -459,6 +480,14 @@ const MainPage: React.FC<MainPageProps> = (props) => {
         onShare={handleShare}
         onCollect={handleCollect}
       />
+
+      {/* 搜索覆盖层 */}
+      <SearchBar
+        onFeedPress={handleFeedPress}
+        onUserPress={handleUserPress}
+        onLike={handleLike}
+        onCollect={handleCollect}
+      />
     </SafeAreaView>
   );
 };
@@ -468,7 +497,7 @@ const MainPage: React.FC<MainPageProps> = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: COLORS.NAV_BACKGROUND, // 状态栏区域使用白色背景
   },
 });
 

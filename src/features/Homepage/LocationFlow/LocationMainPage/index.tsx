@@ -1,6 +1,6 @@
 // #region 1. File Banner & TOC
 /**
- * LocationMainPage - 位置服务主页面
+ * LocationMainPage - 位置服务主页�?
  * 功能描述：GPS定位与城市选择系统
  * TOC: [1] Imports - [2] Types - [3] Constants - [4] Utils - [5] State - [6] Logic - [7] UI - [8] Exports
  */
@@ -10,6 +10,7 @@
 import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import LocationSelectorModal, { LocationData } from '../../../../../app/modal/location-selector';
 import { useLocationStore } from '../../../../../stores';
 import { ErrorBoundary, LoadingOverlay } from '../../../../components';
 // #endregion
@@ -31,14 +32,15 @@ const COLORS = { BACKGROUND: '#FFFFFF', PRIMARY: '#6366F1', TEXT: '#1F2937', TEX
 const useLocationState = () => {
   const { currentLocation, permission, updateLocation, requestPermission } = useLocationStore();
   const [locating, setLocating] = useState(false);
-  return { currentLocation, permission, locating, setLocating, updateLocation, requestPermission };
+  const [showModal, setShowModal] = useState(false);
+  return { currentLocation, permission, locating, setLocating, updateLocation, requestPermission, showModal, setShowModal };
 };
 // #endregion
 
 // #region 7. Domain Logic
 const useLocationLogic = () => {
   const router = useRouter();
-  const { currentLocation, permission, locating, setLocating, updateLocation, requestPermission } = useLocationState();
+  const { currentLocation, permission, locating, setLocating, updateLocation, requestPermission, showModal, setShowModal } = useLocationState();
   
   const handleRequestLocation = useCallback(async () => {
     setLocating(true);
@@ -51,23 +53,57 @@ const useLocationLogic = () => {
   }, [requestPermission, updateLocation, setLocating]);
   
   const handleManualSelect = useCallback(() => {
-    router.push('/(tabs)/homepage/location' as any);
-  }, [router]);
+    setShowModal(true);
+  }, [setShowModal]);
   
-  return { currentLocation, permission, locating, handleRequestLocation, handleManualSelect, handleBack: () => router.back() };
+  const handleLocationSelect = useCallback((location: LocationData) => {
+    // 更新位置到store
+    updateLocation({
+      city: location.name,
+      district: location.address,
+      coordinates: {
+        latitude: location.latitude,
+        longitude: location.longitude,
+      },
+      timestamp: Date.now(),
+    });
+    setShowModal(false);
+    router.back();
+  }, [updateLocation, setShowModal, router]);
+  
+  return { 
+    currentLocation, 
+    permission, 
+    locating, 
+    handleRequestLocation, 
+    handleManualSelect, 
+    handleBack: () => router.back(),
+    showModal,
+    setShowModal,
+    handleLocationSelect,
+  };
 };
 // #endregion
 
 // #region 8. UI Components & Rendering
 const LocationMainPage: React.FC<LocationPageProps> = () => {
-  const { currentLocation, permission, locating, handleRequestLocation, handleManualSelect, handleBack } = useLocationLogic();
+  const { 
+    currentLocation, 
+    permission, 
+    locating, 
+    handleRequestLocation, 
+    handleManualSelect, 
+    handleBack,
+    showModal,
+    setShowModal,
+    handleLocationSelect,
+  } = useLocationLogic();
   
   return (
     <ErrorBoundary>
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack}><Text style={styles.backButton}>←</Text></TouchableOpacity>
-          <Text style={styles.title}>选择位置</Text>
+        {/* header hidden */}
         </View>
         
         <ScrollView style={styles.content}>
@@ -76,15 +112,19 @@ const LocationMainPage: React.FC<LocationPageProps> = () => {
               <Text style={styles.locationIcon}>📍</Text>
               <Text style={styles.locationText}>{currentLocation.city}</Text>
               <Text style={styles.locationDetail}>{currentLocation.district}</Text>
+              
+              <TouchableOpacity style={styles.changeButton} onPress={handleManualSelect}>
+                <Text style={styles.changeButtonText}>更换位置</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.permissionSection}>
               <Text style={styles.permissionIcon}>📍</Text>
-              <Text style={styles.permissionTitle}>获取位置信息</Text>
-              <Text style={styles.permissionDescription}>为了为您推荐附近的服务，需要获取您的位置信息</Text>
+              <Text style={styles.permissionTitle}>选择位置</Text>
+              <Text style={styles.permissionDescription}>为了为您推荐附近的服务，请选择您的位置</Text>
               
               <TouchableOpacity style={styles.locationButton} onPress={handleRequestLocation} disabled={locating}>
-                <Text style={styles.locationButtonText}>{locating ? '定位中...' : '开启定位'}</Text>
+                <Text style={styles.locationButtonText}>{locating ? '定位中...' : '使用当前位置'}</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.manualButton} onPress={handleManualSelect}>
@@ -92,11 +132,16 @@ const LocationMainPage: React.FC<LocationPageProps> = () => {
               </TouchableOpacity>
             </View>
           )}
-          
-          <Text style={styles.placeholder}>位置服务功能开发中...</Text>
         </ScrollView>
         
         {locating && <LoadingOverlay loading={locating} text="正在定位..." />}
+        
+        {/* 位置选择Modal */}
+        <LocationSelectorModal
+          visible={showModal}
+          onSelect={handleLocationSelect}
+          onClose={() => setShowModal(false)}
+        />
       </View>
     </ErrorBoundary>
   );
@@ -122,6 +167,8 @@ const styles = StyleSheet.create({
   locationButtonText: { fontSize: 16, fontWeight: '600', color: COLORS.BACKGROUND },
   manualButton: { paddingVertical: 8 },
   manualButtonText: { fontSize: 14, color: COLORS.PRIMARY },
+  changeButton: { marginTop: 16, paddingVertical: 8, paddingHorizontal: 24, borderWidth: 1, borderColor: COLORS.PRIMARY, borderRadius: 8 },
+  changeButtonText: { fontSize: 14, color: COLORS.PRIMARY, fontWeight: '500' },
   placeholder: { fontSize: 14, color: COLORS.TEXT_SECONDARY, textAlign: 'center', paddingTop: 40 },
 });
 

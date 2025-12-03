@@ -107,13 +107,13 @@ export const ANIMATION_DURATION = {
 export const TAB_TYPES = {
   FOLLOW: 'follow',
   HOT: 'hot',
-  LOCAL: 'local',
+  NEARBY: 'nearby',
 } as const;
 
 export const TAB_LABELS = {
   [TAB_TYPES.FOLLOW]: '关注',
   [TAB_TYPES.HOT]: '热门',
-  [TAB_TYPES.LOCAL]: '同城',
+  [TAB_TYPES.NEARBY]: '同城',
 } as const;
 
 // ==================== 举报理由常量 ====================

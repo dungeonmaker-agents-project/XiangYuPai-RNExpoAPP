@@ -644,7 +644,7 @@ class ApiClient {
         if (responseData.success === false) {
           throw createError(
             ERROR_TYPES.SERVER_ERROR,
-            responseData.message || '业务处理失败',
+            responseData.message || responseData.msg || '业务处理失败',
             responseData.code
           );
         }
@@ -652,7 +652,7 @@ class ApiClient {
         const result: ApiResponse<T> = {
           data: responseData.data || responseData,
           code: responseData.code || HTTP_STATUS.OK,
-          message: responseData.message || 'Success',
+          message: responseData.message || responseData.msg || 'Success',
           timestamp: responseData.timestamp || Date.now(),
           success: true,
         };

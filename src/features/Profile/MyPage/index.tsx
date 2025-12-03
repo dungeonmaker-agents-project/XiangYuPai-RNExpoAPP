@@ -1,19 +1,21 @@
 /**
  * MyPage - 我的页面
- * 
+ *
  * 功能：
  * - 用户基本信息展示
- * - 文档快捷入口（我的发布/我的订单/我的购买/我的报名）
- * - 更多内容菜单（个人中心/钱包/认证/金币/设置/客服/达人认证）
+ * - 交易快捷入口（我的发布/我的订单/我的购买/我的报名）
+ * - 更多内容菜单（个人中心/钱包/状态/金币/设置/客服/达人认证）
  */
 
 import { useAuthStore } from '@/src/features/AuthModule/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import {
     Image,
-    SafeAreaView,
+    Platform,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -21,131 +23,73 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// 图标组件（简单实现，可以后续替换为图标库）
-const IconPlaceholder = ({ emoji }: { emoji: string }) => (
-  <View style={styles.iconContainer}>
-    <Text style={styles.iconEmoji}>{emoji}</Text>
+// 图标配置类型
+interface IconConfig {
+  name: keyof typeof Ionicons.glyphMap;
+  backgroundColor: string;
+  iconColor: string;
+}
+
+// 图标组件
+const MenuIcon = ({ config }: { config: IconConfig }) => (
+  <View style={[styles.iconContainer, { backgroundColor: config.backgroundColor }]}>
+    <Ionicons name={config.name} size={24} color={config.iconColor} />
   </View>
 );
 
 const MyPage = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const currentProfile = useProfileStore((state) => state.currentProfile);
 
-  // 文档区域菜单项
-  const documentItems = [
-    { id: 'publish', label: '我的发布', icon: '📝', route: '/profile/my-posts' },
-    { id: 'order', label: '我的订单', icon: '📋', route: '/profile/my-orders' }, // ✅ 已实现
-    { id: 'purchase', label: '我的购买', icon: '🛍️', route: '/profile/my-purchases' },
-    { id: 'signup', label: '我的报名', icon: '📢', route: '/profile/my-signups' },
+  // 交易区域菜单项
+  const transactionItems = [
+    { id: 'publish', label: '我的发布', icon: { name: 'document-text-outline' as const, backgroundColor: '#FFF5E6', iconColor: '#F59E0B' }, route: '/profile/my-posts' },
+    { id: 'order', label: '我的订单', icon: { name: 'clipboard-outline' as const, backgroundColor: '#EEF2FF', iconColor: '#6366F1' }, route: '/profile/my-orders' },
+    { id: 'purchase', label: '我的购买', icon: { name: 'bag-outline' as const, backgroundColor: '#F0FDF4', iconColor: '#22C55E' }, route: '/profile/my-purchases' },
+    { id: 'signup', label: '我的报名', icon: { name: 'mail-outline' as const, backgroundColor: '#EFF6FF', iconColor: '#3B82F6' }, route: '/profile/my-signups' },
   ];
 
   // 更多内容菜单项
   const moreItems = [
-    { id: 'personal', label: '个人中心', icon: '👤', route: '/profile/personal-center' },
-    { id: 'wallet', label: '钱包', icon: '💰', route: '/profile/wallet' },
-    { id: 'status', label: '状态', icon: '🔄', route: '/profile/my-status' },
-    { id: 'coin', label: '金币', icon: '🪙', route: '/profile/coins' },
-    { id: 'settings', label: '设置', icon: '⚙️', route: '/profile/settings' },
-    { id: 'service', label: '客服', icon: '🏠', route: '/profile/customer-service' },
-    { id: 'expert', label: '达人认证', icon: '👑', route: '/profile/expert-verification' },
+    { id: 'personal', label: '个人中心', icon: { name: 'person-outline' as const, backgroundColor: '#FFF7ED', iconColor: '#F97316' }, route: '/profile/user-profile' },
+    { id: 'status', label: '状态', icon: { name: 'navigate-circle-outline' as const, backgroundColor: '#E0F2FE', iconColor: '#0EA5E9' }, route: '/profile/my-status' },
+    { id: 'wallet', label: '钱包', icon: { name: 'wallet-outline' as const, backgroundColor: '#ECFEFF', iconColor: '#06B6D4' }, route: '/profile/wallet' },
+    { id: 'coin', label: '金币', icon: { name: 'diamond-outline' as const, backgroundColor: '#FEF3C7', iconColor: '#F59E0B' }, route: '/profile/coins' },
+    { id: 'settings', label: '设置', icon: { name: 'settings-outline' as const, backgroundColor: '#F3E8FF', iconColor: '#A855F7' }, route: '/profile/settings' },
+    { id: 'service', label: '客服', icon: { name: 'headset-outline' as const, backgroundColor: '#DCFCE7', iconColor: '#22C55E' }, route: '/profile/customer-service' },
+    { id: 'expert', label: '达人认证', icon: { name: 'trophy-outline' as const, backgroundColor: '#FCE7F3', iconColor: '#EC4899' }, route: '/profile/expert-verification' },
   ];
 
   // 处理菜单项点击
   const handleMenuPress = (route: string, label: string) => {
     console.log(`🧭 导航: 我的页面 → ${label}`);
-    
-    // 特殊处理：个人中心跳转到用户详情页
-    if (route === '/profile/personal-center') {
-      router.push('/profile/user-profile');
-      return;
-    }
-    
-    // 特殊处理：我的发布
-    if (route === '/profile/my-posts') {
-      router.push('/profile/my-posts');
-      return;
-    }
-    
-    // 特殊处理：我的订单（服务提供者视角）
-    if (route === '/profile/my-orders') {
-      router.push('/profile/my-orders');
-      return;
-    }
-    
-    // 特殊处理：我的购买（客户视角）
-    if (route === '/profile/my-purchases') {
-      router.push('/profile/my-purchases');
-      return;
-    }
-    
-    // 特殊处理：我的报名
-    if (route === '/profile/my-signups') {
-      router.push('/profile/my-signups');
-      return;
-    }
-    
-    // 特殊处理：状态管理
-    if (route === '/profile/my-status') {
-      router.push('/profile/my-status');
-      return;
-    }
-    
-    // 特殊处理：钱包
-    if (route === '/profile/wallet') {
-      router.push('/profile/wallet');
-      return;
-    }
-    
-    // 特殊处理：金币
-    if (route === '/profile/coins') {
-      router.push('/profile/coins');
-      return;
-    }
-    
-    // 特殊处理：设置
-    if (route === '/profile/settings') {
-      router.push('/profile/settings');
-      return;
-    }
-    
-    // 特殊处理：客服
-    if (route === '/profile/customer-service') {
-      router.push('/profile/customer-service');
-      return;
-    }
-    
-    // 特殊处理：达人认证
-    if (route === '/profile/expert-verification') {
-      router.push('/profile/expert-verification');
-      return;
-    }
-    
-    // 其他路由暂时显示提示
-    console.log(`⚠️ 路由 ${route} 尚未实现`);
-    // router.push(route);
+    router.push(route as any);
   };
 
-  // 处理用户信息区域点击
+  // 处理用户信息区域点击（仅未登录时跳转登录页）
   const handleUserInfoPress = () => {
-    if (isAuthenticated) {
-      console.log('🧭 导航: 我的页面 → 个人中心');
-      router.push('/profile/user-profile');
-    } else {
+    if (!isAuthenticated) {
       console.log('🧭 导航: 我的页面 → 登录页');
       router.push('/auth/login');
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* 用户信息区域 */}
-        <TouchableOpacity 
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
+      {/* 紫色渐变背景 - 延伸到状态栏 */}
+      <LinearGradient
+        colors={['#C084FC', '#A855F7', '#9333EA']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.headerGradient, { paddingTop: insets.top + 12 }]}
+      >
+        <TouchableOpacity
           style={styles.userSection}
           onPress={handleUserInfoPress}
           activeOpacity={0.7}
@@ -168,25 +112,30 @@ const MyPage = () => {
               <Text style={styles.userDesc}>
                 {isAuthenticated && currentProfile?.bio
                   ? currentProfile.bio
-                  : '这个人很懒，没有留下签名'}
+                  : '这个家伙很神秘，没有填写简介'}
               </Text>
             </View>
           </View>
-          <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
+      </LinearGradient>
 
-        {/* 文档区域 */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 交易区域 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>文档</Text>
+          <Text style={styles.sectionTitle}>交易</Text>
           <View style={styles.menuGrid}>
-            {documentItems.map((item) => (
+            {transactionItems.map((item) => (
               <TouchableOpacity
                 key={item.id}
                 style={styles.menuItem}
                 onPress={() => handleMenuPress(item.route, item.label)}
                 activeOpacity={0.7}
               >
-                <IconPlaceholder emoji={item.icon} />
+                <MenuIcon config={item.icon} />
                 <Text style={styles.menuLabel}>{item.label}</Text>
               </TouchableOpacity>
             ))}
@@ -204,17 +153,14 @@ const MyPage = () => {
                 onPress={() => handleMenuPress(item.route, item.label)}
                 activeOpacity={0.7}
               >
-                <IconPlaceholder emoji={item.icon} />
+                <MenuIcon config={item.icon} />
                 <Text style={styles.menuLabel}>{item.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-
-        {/* 底部间距 */}
-        <View style={styles.bottomSpacer} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -223,18 +169,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
-  scrollView: {
-    flex: 1,
+  // 头部渐变区域
+  headerGradient: {
+    paddingBottom: 20,
   },
   // 用户信息区域
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
-    paddingVertical: 24,
-    marginBottom: 12,
+    paddingVertical: 12,
   },
   userInfo: {
     flexDirection: 'row',
@@ -242,77 +186,87 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#E5E7EB',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
   userText: {
-    marginLeft: 16,
+    marginLeft: 14,
     flex: 1,
   },
   userName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 6,
+    color: '#FFFFFF',
+    marginBottom: 4,
   },
   userDesc: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: 'rgba(255, 255, 255, 0.8)',
     lineHeight: 18,
   },
-  arrow: {
-    fontSize: 28,
-    color: '#D1D5DB',
-    fontWeight: '300',
+  // ScrollView
+  scrollView: {
+    flex: 1,
+    marginTop: -8,
+  },
+  scrollContent: {
+    paddingTop: 0,
   },
   // 区域样式
   section: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
-    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 6,
+    marginBottom: 10,
+    marginHorizontal: 14,
+    borderRadius: 14,
+    // 阴影
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 16,
+    marginBottom: 10,
+    paddingLeft: 4,
   },
   // 菜单网格
   menuGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -8,
   },
   menuItem: {
     width: '25%',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F3F4F6',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-  },
-  iconEmoji: {
-    fontSize: 24,
+    marginBottom: 6,
   },
   menuLabel: {
     fontSize: 12,
     color: '#4B5563',
     textAlign: 'center',
-    marginTop: 4,
-  },
-  bottomSpacer: {
-    height: 40,
   },
 });
 

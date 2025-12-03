@@ -1,20 +1,22 @@
 // #region 1. File Banner & TOC
 /**
  * FeedCard - 动态卡片组件
- * 
+ *
  * 功能：
  * - 双列瀑布流卡片样式
  * - 图片优先显示
  * - 用户信息和互动栏
  * - 点赞收藏动画效果
- * 
- * 设计规格（基于UI设计图）：
- * - 卡片圆角：12px
- * - 图片圆角：12px（顶部）
- * - 用户头像：32x32px圆形
- * - 互动图标：18px
- * - 间距：12px标准间距
- * 
+ * - 视频类型显示播放图标
+ *
+ * 设计规格（基于UI设计文档 - 发现页_结构文档.md）：
+ * - 卡片圆角: 8px
+ * - 用户头像: 24x24px 圆形
+ * - 标题: 14sp, #333333, 最多2行省略
+ * - 昵称: 12sp, #666666
+ * - 统计: 12sp, #999999
+ * - 内边距: 8px
+ *
  * TOC (快速跳转):
  * [1] File Banner & TOC
  * [2] Imports
@@ -58,33 +60,46 @@ export interface FeedCardProps {
 // #endregion
 
 // #region 4. Constants & Config
+/**
+ * 颜色配置 - 基于UI设计文档
+ */
 const COLORS = {
   BACKGROUND: '#FFFFFF',
-  TEXT_PRIMARY: '#000000',
-  TEXT_SECONDARY: '#666666',
-  TEXT_TERTIARY: '#999999',
+  TEXT_PRIMARY: '#333333',      // 标题颜色
+  TEXT_SECONDARY: '#666666',    // 昵称颜色
+  TEXT_TERTIARY: '#999999',     // 统计数字颜色
   DIVIDER: '#F0F0F0',
-  LIKE_ACTIVE: '#FF4444',
+  LIKE_ACTIVE: '#FF4444',       // 已点赞颜色
   COLLECT_ACTIVE: '#FFB800',
+  PLAY_ICON_BG: 'rgba(0, 0, 0, 0.5)',  // 播放图标背景
 } as const;
 
+/**
+ * 尺寸配置 - 基于UI设计文档
+ */
+const SIZES = {
+  CARD_RADIUS: 8,               // 卡片圆角 (文档要求8px)
+  AVATAR_SIZE: 24,              // 头像尺寸 (文档要求24x24)
+  PLAY_ICON_SIZE: 32,           // 播放图标尺寸
+  ICON_SIZE: 14,                // 互动图标尺寸
+} as const;
+
+/**
+ * 排版配置 - 基于UI设计文档
+ */
 const TYPOGRAPHY = {
   TITLE: {
-    fontSize: 15,
-    fontWeight: '600' as const,
-    lineHeight: 20,
-  },
-  CONTENT: {
-    fontSize: 14,
+    fontSize: 14,               // 文档要求14sp
+    fontWeight: '500' as const,
     lineHeight: 20,
   },
   NICKNAME: {
-    fontSize: 13,
-    fontWeight: '500' as const,
-    lineHeight: 18,
+    fontSize: 12,               // 文档要求12sp
+    fontWeight: '400' as const,
+    lineHeight: 16,
   },
   STAT: {
-    fontSize: 12,
+    fontSize: 12,               // 文档要求12sp
     lineHeight: 16,
   },
 } as const;
@@ -92,7 +107,7 @@ const TYPOGRAPHY = {
 
 // #region 5. Utils & Helpers
 /**
- * 格式化数字（1000+ → 1k）
+ * 格式化数字（>=10000 显示 1.2w）
  */
 const formatNumber = (num: number): string => {
   if (num >= 10000) {
@@ -112,7 +127,7 @@ const formatNumber = (num: number): string => {
 const useFeedCardLogic = (props: FeedCardProps) => {
   const { feed, onPress, onUserPress, onLike, onCollect, cardWidth } = props;
   const router = useRouter();
-  
+
   // 处理卡片点击
   const handlePress = useCallback(() => {
     if (onPress) {
@@ -121,53 +136,60 @@ const useFeedCardLogic = (props: FeedCardProps) => {
       router.push(`/feed/${feed.id}` as any);
     }
   }, [onPress, feed.id, router]);
-  
+
   // 处理用户点击
   const handleUserPress = useCallback(() => {
     if (onUserPress) {
       onUserPress(feed.userId);
     }
-    // TODO: 跳转到用户页面
   }, [onUserPress, feed.userId]);
-  
+
   // 点赞动画状态
   const [likeScale] = useState(new Animated.Value(1));
-  const [collectScale] = useState(new Animated.Value(1));
-  
+
   /**
-   * 计算图片高度（保持宽高比 + 随机性）
+   * 判断是否为视频类型
+   */
+  const isVideo = useMemo(() => {
+    if (feed.mediaList?.length > 0) {
+      return feed.mediaList[0]?.type === 'video';
+    }
+    return feed.type === 2; // type=2 表示视频
+  }, [feed.mediaList, feed.type]);
+
+  /**
+   * 计算图片高度（保持宽高比 + 瀑布流随机性）
    */
   const imageHeight = useMemo(() => {
-    if (feed.mediaList.length > 0) {
+    if (feed.mediaList?.length > 0) {
       const media = feed.mediaList[0];
       if (media.width && media.height) {
         return (cardWidth * media.height) / media.width;
       }
+      // 使用aspectRatio
+      if (media.aspectRatio) {
+        return cardWidth / media.aspectRatio;
+      }
     }
-    
-    // 🎨 随机高度：生成4种比例（4:3, 3:4, 1:1, 16:9）
-    // 使用feedId作为种子，保证同一卡片高度一致
-    // 防御性编程：确保feed.id存在且是字符串
-    const seedStr = String(feed.id || feed.feedId || Math.random());
+
+    // 🎨 随机高度：使用feedId作为种子，保证同一卡片高度一致
+    const seedStr = String(feed.id || Math.random());
     const seed = seedStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const ratios = [
-      1.33,  // 4:3 (横图)
-      1.5,   // 3:2
-      1.0,   // 1:1 (正方形)
-      1.78,  // 16:9 (宽屏)
-      1.25,  // 5:4
       0.75,  // 3:4 (竖图)
+      1.0,   // 1:1 (正方形)
+      1.33,  // 4:3 (横图)
+      0.8,   // 4:5
     ];
     const selectedRatio = ratios[seed % ratios.length];
-    
-    return cardWidth * selectedRatio;
+
+    return cardWidth / selectedRatio;
   }, [feed.id, feed.mediaList, cardWidth]);
-  
+
   /**
    * 处理点赞（带动画）
    */
   const handleLike = useCallback(() => {
-    // 点赞动画
     Animated.sequence([
       Animated.spring(likeScale, {
         toValue: 1.3,
@@ -180,62 +202,25 @@ const useFeedCardLogic = (props: FeedCardProps) => {
         useNativeDriver: true,
       }),
     ]).start();
-    
+
     onLike(feed.id);
   }, [feed.id, onLike, likeScale]);
-  
-  /**
-   * 处理收藏（带动画）
-   */
-  const handleCollect = useCallback(() => {
-    // 收藏动画
-    Animated.sequence([
-      Animated.spring(collectScale, {
-        toValue: 1.2,
-        friction: 3,
-        useNativeDriver: true,
-      }),
-      Animated.spring(collectScale, {
-        toValue: 1,
-        friction: 3,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    onCollect(feed.id);
-  }, [feed.id, onCollect, collectScale]);
-  
+
   /**
    * 处理评论
    */
   const handleComment = useCallback(() => {
-    if (onComment) {
-      onComment(feed.id);
-    } else {
-      router.push(`/feed/${feed.id}` as any);
-    }
-  }, [feed.id, onComment, router]);
-  
-  /**
-   * 处理分享
-   */
-  const handleShare = useCallback(() => {
-    if (onShare) {
-      onShare(feed.id);
-    }
-    // TODO: 实现分享功能
-  }, [feed.id, onShare]);
-  
+    router.push(`/feed/${feed.id}` as any);
+  }, [feed.id, router]);
+
   return {
     feed,
     imageHeight,
     cardWidth,
+    isVideo,
     likeScale,
-    collectScale,
     handleLike,
-    handleCollect,
     handleComment,
-    handleShare,
     handlePress,
     handleUserPress,
   };
@@ -244,6 +229,108 @@ const useFeedCardLogic = (props: FeedCardProps) => {
 
 // #region 8. UI Components & Rendering
 /**
+ * 媒体区域组件
+ */
+const MediaSection: React.FC<{
+  feed: Feed;
+  imageHeight: number;
+  isVideo: boolean;
+}> = ({ feed, imageHeight, isVideo }) => {
+  const hasMedia = feed.mediaList?.length > 0 && feed.mediaList[0]?.url;
+  const coverUrl = hasMedia
+    ? feed.mediaList[0].url
+    : feed.coverImage;
+
+  return (
+    <View style={[styles.mediaContainer, { height: imageHeight }]}>
+      {coverUrl ? (
+        <Image
+          source={{ uri: coverUrl }}
+          style={styles.coverImage}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.placeholderImage}>
+          <Text style={styles.placeholderText}>📷</Text>
+        </View>
+      )}
+
+      {/* 视频播放图标 - 右上角 */}
+      {isVideo && (
+        <View style={styles.playIconContainer}>
+          <Text style={styles.playIcon}>▶</Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+/**
+ * 文本区域组件
+ */
+const TextSection: React.FC<{ feed: Feed }> = ({ feed }) => (
+  <View style={styles.textSection}>
+    <Text style={styles.title} numberOfLines={2}>
+      {feed.title || feed.content}
+    </Text>
+  </View>
+);
+
+/**
+ * 信息区域组件 (作者+点赞)
+ */
+const InfoSection: React.FC<{
+  feed: Feed;
+  likeScale: Animated.Value;
+  onUserPress: () => void;
+  onLike: () => void;
+}> = ({ feed, likeScale, onUserPress, onLike }) => (
+  <View style={styles.infoSection}>
+    {/* 作者信息 */}
+    <TouchableOpacity
+      style={styles.authorInfo}
+      onPress={onUserPress}
+      activeOpacity={0.7}
+    >
+      {feed.userInfo?.avatar ? (
+        <Image
+          source={{ uri: feed.userInfo.avatar }}
+          style={styles.avatar}
+        />
+      ) : (
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <Text style={styles.avatarPlaceholderText}>👤</Text>
+        </View>
+      )}
+      <Text style={styles.nickname} numberOfLines={1}>
+        {feed.userInfo?.nickname || '用户'}
+      </Text>
+    </TouchableOpacity>
+
+    {/* 点赞按钮 */}
+    <Animated.View style={{ transform: [{ scale: likeScale }] }}>
+      <TouchableOpacity
+        style={styles.likeButton}
+        onPress={onLike}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.likeIcon}>
+          {feed.isLiked ? '♥' : '♡'}
+        </Text>
+        <Text
+          style={[
+            styles.likeCount,
+            feed.isLiked && styles.likeCountActive,
+          ]}
+        >
+          {formatNumber(feed.likeCount)}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  </View>
+);
+
+/**
  * FeedCard主组件
  */
 const FeedCard: React.FC<FeedCardProps> = (props) => {
@@ -251,110 +338,37 @@ const FeedCard: React.FC<FeedCardProps> = (props) => {
     feed,
     imageHeight,
     cardWidth,
+    isVideo,
     likeScale,
-    collectScale,
     handleLike,
-    handleCollect,
-    handleComment,
-    handleShare,
     handlePress,
     handleUserPress,
   } = useFeedCardLogic(props);
-  
+
   return (
-    <View style={[styles.card, { width: cardWidth }]}>
-      {/* 卡片内容点击区域 */}
-      <TouchableOpacity
-        activeOpacity={0.95}
-        onPress={handlePress}
-      >
-        {/* 封面图片 */}
-        {feed.mediaList?.length > 0 && feed.mediaList[0]?.url && (
-          <Image
-            source={{ uri: feed.mediaList[0].url }}
-            style={[styles.coverImage, { height: imageHeight }]}
-            resizeMode="cover"
-          />
-        )}
-        {(!feed.mediaList?.length || !feed.mediaList[0]?.url) && (
-          <View style={[styles.coverImage, styles.placeholderImage, { height: imageHeight }]}>
-            <Text style={styles.placeholderText}>📷</Text>
-          </View>
-        )}
-        
-        {/* 文字内容 */}
-        <View style={styles.contentSection}>
-          {feed.title && (
-            <Text style={styles.title} numberOfLines={2}>
-              {feed.title}
-            </Text>
-          )}
-          <Text style={styles.content} numberOfLines={3}>
-            {feed.content}
-          </Text>
-        </View>
-      </TouchableOpacity>
-      
-      {/* 底部信息栏 */}
-      <View style={styles.bottomSection}>
-      {/* 用户信息 */}
-      <TouchableOpacity
-        style={styles.userInfo}
-        onPress={handleUserPress}
-        activeOpacity={0.7}
-      >
-        {feed.userInfo?.avatar ? (
-          <Image
-            source={{ uri: feed.userInfo.avatar }}
-            style={styles.avatar}
-          />
-        ) : (
-          <View style={[styles.avatar, styles.avatarPlaceholder]}>
-            <Text style={styles.avatarPlaceholderText}>👤</Text>
-          </View>
-        )}
-        <Text style={styles.nickname} numberOfLines={1}>
-          {feed.userInfo.nickname}
-        </Text>
-      </TouchableOpacity>
-        
-        {/* 互动栏 */}
-        <View style={styles.actionBar}>
-          {/* 点赞 */}
-          <Animated.View style={{ transform: [{ scale: likeScale }] }}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={handleLike}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.actionIcon}>
-                {feed.isLiked ? '❤️' : '🤍'}
-              </Text>
-              <Text
-                style={[
-                  styles.actionText,
-                  feed.isLiked && styles.actionTextActive,
-                ]}
-              >
-                {formatNumber(feed.likeCount)}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-          
-          {/* 评论 */}
-          <TouchableOpacity
-            style={[styles.actionButton, { marginLeft: 12 }]}
-            onPress={handleComment}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.actionIcon}>💬</Text>
-            <Text style={styles.actionText}>
-              {feed.commentCount > 0 ? formatNumber(feed.commentCount) : ''}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+    <TouchableOpacity
+      style={[styles.card, { width: cardWidth }]}
+      activeOpacity={0.95}
+      onPress={handlePress}
+    >
+      {/* 媒体区域 */}
+      <MediaSection
+        feed={feed}
+        imageHeight={imageHeight}
+        isVideo={isVideo}
+      />
+
+      {/* 文本区域 */}
+      <TextSection feed={feed} />
+
+      {/* 信息区域 */}
+      <InfoSection
+        feed={feed}
+        likeScale={likeScale}
+        onUserPress={handleUserPress}
+        onLike={handleLike}
+      />
+    </TouchableOpacity>
   );
 };
 // #endregion
@@ -363,58 +377,86 @@ const FeedCard: React.FC<FeedCardProps> = (props) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.BACKGROUND,
-    borderRadius: 12,
-    marginBottom: 12,
+    borderRadius: SIZES.CARD_RADIUS,
+    marginBottom: 8,
     overflow: 'hidden',
-    // 添加阴影（iOS）
+    // 轻微阴影
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    // 添加阴影（Android）
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  // 媒体区域
+  mediaContainer: {
+    width: '100%',
+    backgroundColor: COLORS.DIVIDER,
+    position: 'relative',
   },
   coverImage: {
     width: '100%',
-    backgroundColor: COLORS.DIVIDER,
+    height: '100%',
   },
   placeholderImage: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
   },
   placeholderText: {
-    fontSize: 48,
+    fontSize: 40,
     opacity: 0.3,
   },
-  contentSection: {
-    padding: 12,
+  playIconContainer: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: SIZES.PLAY_ICON_SIZE,
+    height: SIZES.PLAY_ICON_SIZE,
+    borderRadius: SIZES.PLAY_ICON_SIZE / 2,
+    backgroundColor: COLORS.PLAY_ICON_BG,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playIcon: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    marginLeft: 2, // 视觉居中调整
+  },
+
+  // 文本区域 - padding: 8px 8px 4px 8px
+  textSection: {
+    paddingTop: 8,
+    paddingHorizontal: 8,
+    paddingBottom: 4,
   },
   title: {
     ...TYPOGRAPHY.TITLE,
     color: COLORS.TEXT_PRIMARY,
-    marginBottom: 4,
   },
-  content: {
-    ...TYPOGRAPHY.CONTENT,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  bottomSection: {
+
+  // 信息区域 - padding: 4px 8px 8px
+  infoSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
+    paddingTop: 4,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
-  userInfo: {
+
+  // 作者信息
+  authorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    marginRight: 8,
   },
   avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: SIZES.AVATAR_SIZE,
+    height: SIZES.AVATAR_SIZE,
+    borderRadius: SIZES.AVATAR_SIZE / 2,
     backgroundColor: COLORS.DIVIDER,
     marginRight: 6,
   },
@@ -423,34 +465,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatarPlaceholderText: {
-    fontSize: 12,
+    fontSize: 10,
   },
   nickname: {
     ...TYPOGRAPHY.NICKNAME,
     color: COLORS.TEXT_SECONDARY,
     flex: 1,
   },
-  actionBar: {
+
+  // 点赞按钮
+  likeButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  likeIcon: {
+    fontSize: SIZES.ICON_SIZE,
+    color: COLORS.TEXT_TERTIARY,
   },
-  actionIcon: {
-    fontSize: 16,
-    marginRight: 2,
-  },
-  actionText: {
+  likeCount: {
     ...TYPOGRAPHY.STAT,
-    color: COLORS.TEXT_SECONDARY,
+    color: COLORS.TEXT_TERTIARY,
   },
-  actionTextActive: {
+  likeCountActive: {
     color: COLORS.LIKE_ACTIVE,
   },
 });
 
 export default FeedCard;
 // #endregion
-
