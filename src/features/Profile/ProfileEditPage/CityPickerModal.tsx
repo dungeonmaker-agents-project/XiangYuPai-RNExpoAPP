@@ -28,7 +28,7 @@ interface CityPickerModalProps {
   title: string;
   currentProvince?: string;
   currentCity?: string;
-  onSelect: (province: string, city: string) => void;
+  onSelect: (province: string, city: string, locationCode: string) => void;
   onCancel: () => void;
 }
 
@@ -119,14 +119,16 @@ const CityPickerModal: React.FC<CityPickerModalProps> = ({
     if (selectedProvince) {
       const provinceName = selectedProvince.name;
       const cityName = selectedCity?.name || '';
-      onSelect(provinceName, cityName);
+      // 优先使用城市编码，没有城市时使用省份编码
+      const locationCode = selectedCity?.code || selectedProvince.code;
+      onSelect(provinceName, cityName, locationCode);
     }
   };
 
   // 快速选择（城市直接确认）
   const handleQuickSelect = (city: RegionData) => {
     if (selectedProvince) {
-      onSelect(selectedProvince.name, city.name);
+      onSelect(selectedProvince.name, city.name, city.code);
     }
   };
 

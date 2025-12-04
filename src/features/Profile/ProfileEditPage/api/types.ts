@@ -28,6 +28,7 @@ export interface UserProfileData {
   gender: 'male' | 'female' | null;
   birthday: string | null;      // YYYY-MM-DD 格式
   residence: string | null;     // 常居地（城市名称）
+  locationCode: string | null;  // 常居地编码
   height: number | null;        // 身高 (cm)
   weight: number | null;        // 体重 (kg)
   occupation: string | null;    // 职业
@@ -61,7 +62,8 @@ export interface UpdateBirthdayRequest {
  * 更新居住地请求
  */
 export interface UpdateResidenceRequest {
-  residence: string;  // 城市名称，如"深圳"
+  residence: string;      // 城市名称，如"深圳"
+  locationCode?: string;  // 城市编码（可选）
 }
 
 /**

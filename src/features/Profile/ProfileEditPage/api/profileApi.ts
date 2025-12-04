@@ -166,14 +166,18 @@ class ProfileEditAPI {
   /**
    * 更新居住地
    * @param residence 居住地（城市名称）
+   * @param locationCode 城市编码（可选）
    */
-  async updateResidence(residence: string): Promise<ApiResponse<void>> {
+  async updateResidence(residence: string, locationCode?: string): Promise<ApiResponse<void>> {
     if (!residence || residence.length > 200) {
       throw new Error('居住地不能超过200字符');
     }
 
     try {
       const request: UpdateResidenceRequest = { residence };
+      if (locationCode) {
+        request.locationCode = locationCode;
+      }
       const response = await apiClient.put<ApiResponse<void>>(
         API_ENDPOINTS.UPDATE_RESIDENCE,
         request

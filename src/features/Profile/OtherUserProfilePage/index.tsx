@@ -92,26 +92,34 @@ const OtherUserProfilePage: React.FC<OtherUserProfilePageProps> = ({ userId }) =
     headerData,
     profileInfo,
     skillsData,
+    momentsData,
     // Loading states
     headerLoading,
     profileLoading,
     skillsLoading,
+    momentsLoading,
     // Error states
     headerError,
     profileError,
     skillsError,
+    momentsError,
     // Pagination
     hasMoreSkills,
+    hasMoreMoments,
     // Actions
     fetchHeaderData,
     fetchProfileInfo,
     fetchSkillsList,
     loadMoreSkills,
+    fetchMomentsList,
+    loadMoreMoments,
     refreshAll,
     // User actions
     followUser,
     unfollowUser,
     unlockWechat,
+    // Moment actions
+    toggleMomentLike,
   } = useOtherUserProfile({
     userId: Number(userId),
     autoFetch: !isOwnProfile,
@@ -135,13 +143,16 @@ const OtherUserProfilePage: React.FC<OtherUserProfilePageProps> = ({ userId }) =
   // Load tab-specific data when tab changes
   useEffect(() => {
     if (isOwnProfile) return; // Don't load data if viewing own profile
+    if (activeTab === 'dynamics' && !momentsData && !momentsLoading) {
+      fetchMomentsList(1);
+    }
     if (activeTab === 'profile' && !profileInfo && !profileLoading) {
       fetchProfileInfo();
     }
     if (activeTab === 'skills' && !skillsData && !skillsLoading) {
       fetchSkillsList(1);
     }
-  }, [activeTab, profileInfo, skillsData, profileLoading, skillsLoading, isOwnProfile]);
+  }, [activeTab, momentsData, profileInfo, skillsData, momentsLoading, profileLoading, skillsLoading, isOwnProfile]);
 
   // Handle tab change
   const handleTabChange = useCallback((tab: TabType) => {
@@ -391,15 +402,22 @@ const OtherUserProfilePage: React.FC<OtherUserProfilePageProps> = ({ userId }) =
             isOwnProfile={false}
             profileInfo={profileInfo}
             skillsData={skillsData}
+            momentsData={momentsData}
             profileLoading={profileLoading}
             skillsLoading={skillsLoading}
+            momentsLoading={momentsLoading}
             profileError={profileError}
             skillsError={skillsError}
+            momentsError={momentsError}
             hasMoreSkills={hasMoreSkills}
+            hasMoreMoments={hasMoreMoments}
             onLoadMoreSkills={loadMoreSkills}
+            onLoadMoreMoments={loadMoreMoments}
             onRefreshProfile={fetchProfileInfo}
             onRefreshSkills={() => fetchSkillsList(1)}
+            onRefreshMoments={() => fetchMomentsList(1)}
             onUnlockWechat={handleUnlockWeChat}
+            onMomentLikePress={toggleMomentLike}
           />
         </View>
       </ScrollView>

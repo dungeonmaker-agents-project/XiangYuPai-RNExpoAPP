@@ -9,8 +9,10 @@
  * - 获取用户头部数据 (UserHeaderData)
  * - 获取用户资料详情 (ProfileInfoData)
  * - 获取用户技能列表 (SkillsListData)
+ * - 获取用户动态列表 (MomentsListData)
  * - 关注/取消关注用户
  * - 解锁微信功能
+ * - 点赞/取消点赞动态 (带乐观更新)
  *
  * TOC:
  * [1] File Banner & TOC
@@ -30,6 +32,9 @@ import {
   getOtherUserProfile,
   getProfileInfo,
   getUserSkills,
+  getUserMoments,
+  likeMoment as likeMomentApi,
+  unlikeMoment as unlikeMomentApi,
   unlockWechat as unlockWechatApi,
   followUser as followUserApi,
   unfollowUser as unfollowUserApi,
@@ -37,6 +42,7 @@ import {
   type ProfileInfoData as ApiProfileInfoData,
   type UserSkillsListData,
   type UnlockWechatResult as ApiUnlockResult,
+  type MomentsListResponse,
 } from '../api';
 
 import type {
@@ -44,6 +50,8 @@ import type {
   ProfileInfoData,
   SkillItem,
   SkillsListData,
+  MomentsListData,
+  MomentItem,
   UnlockWechatResult,
   TabType,
 } from '../types';
@@ -62,32 +70,42 @@ interface UseOtherUserProfileReturn {
   headerData: UserHeaderData | null;
   profileInfo: ProfileInfoData | null;
   skillsData: SkillsListData | null;
+  momentsData: MomentsListData | null;
 
   // Loading states
   headerLoading: boolean;
   profileLoading: boolean;
   skillsLoading: boolean;
+  momentsLoading: boolean;
 
   // Error states
   headerError: string | null;
   profileError: string | null;
   skillsError: string | null;
+  momentsError: string | null;
 
   // Pagination
   skillsPage: number;
   hasMoreSkills: boolean;
+  momentsPage: number;
+  hasMoreMoments: boolean;
 
   // Actions
   fetchHeaderData: () => Promise<void>;
   fetchProfileInfo: () => Promise<void>;
   fetchSkillsList: (page?: number) => Promise<void>;
   loadMoreSkills: () => Promise<void>;
+  fetchMomentsList: (page?: number) => Promise<void>;
+  loadMoreMoments: () => Promise<void>;
   refreshAll: () => Promise<void>;
 
   // User actions
   followUser: () => Promise<boolean>;
   unfollowUser: () => Promise<boolean>;
   unlockWechat: () => Promise<UnlockWechatResult>;
+
+  // Moment actions
+  toggleMomentLike: (momentId: string) => Promise<boolean>;
 }
 
 // #endregion
@@ -117,6 +135,13 @@ export function useOtherUserProfile({
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [skillsPage, setSkillsPage] = useState(1);
   const [hasMoreSkills, setHasMoreSkills] = useState(true);
+
+  // State - Moments List
+  const [momentsData, setMomentsData] = useState<MomentsListData | null>(null);
+  const [momentsLoading, setMomentsLoading] = useState(false);
+  const [momentsError, setMomentsError] = useState<string | null>(null);
+  const [momentsPage, setMomentsPage] = useState(1);
+  const [hasMoreMoments, setHasMoreMoments] = useState(true);
 
   // Get current location for distance calculation (with timeout)
   const getCurrentLocation = useCallback(async () => {
@@ -331,14 +356,184 @@ export function useOtherUserProfile({
     await fetchSkillsList(skillsPage + 1);
   }, [hasMoreSkills, skillsLoading, skillsPage, fetchSkillsList]);
 
+  // Transform API response to MomentItem
+  const transformMomentItem = useCallback(
+    (item: MomentsListResponse['list'][0]): MomentItem => ({
+      id: item.id,
+      type: item.type,
+      mediaData: {
+        coverUrl: item.mediaData.coverUrl,
+        aspectRatio: item.mediaData.aspectRatio,
+        duration: item.mediaData.duration,
+      },
+      textData: {
+        title: item.textData.title,
+      },
+      authorData: {
+        userId: item.authorData.userId,
+        avatar: item.authorData.avatar,
+        nickname: item.authorData.nickname,
+      },
+      statsData: {
+        likeCount: item.statsData.likeCount,
+        isLiked: item.statsData.isLiked,
+      },
+    }),
+    []
+  );
+
+  // Fetch moments list
+  const fetchMomentsList = useCallback(
+    async (page: number = 1) => {
+      setMomentsLoading(true);
+      setMomentsError(null);
+
+      try {
+        const response = await getUserMoments(userId, page, 10);
+
+        if (response.code === 200 && response.data) {
+          const { list, total, hasMore } = response.data;
+          const transformedList = list.map(transformMomentItem);
+
+          if (page === 1) {
+            setMomentsData({ list: transformedList, total, hasMore });
+          } else {
+            setMomentsData((prev) =>
+              prev
+                ? {
+                    list: [...prev.list, ...transformedList],
+                    total,
+                    hasMore,
+                  }
+                : { list: transformedList, total, hasMore }
+            );
+          }
+
+          setMomentsPage(page);
+          setHasMoreMoments(hasMore);
+        } else {
+          setMomentsError(response.message || '获取动态列表失败');
+        }
+      } catch (error: any) {
+        console.error('Fetch moments list error:', error);
+        const errorMessage = error?.message || error?.msg || '网络错误，请稍后重试';
+        setMomentsError(errorMessage);
+      } finally {
+        setMomentsLoading(false);
+      }
+    },
+    [userId, transformMomentItem]
+  );
+
+  // Load more moments
+  const loadMoreMoments = useCallback(async () => {
+    if (!hasMoreMoments || momentsLoading) return;
+    await fetchMomentsList(momentsPage + 1);
+  }, [hasMoreMoments, momentsLoading, momentsPage, fetchMomentsList]);
+
+  // Toggle moment like (optimistic update)
+  const toggleMomentLike = useCallback(
+    async (momentId: string): Promise<boolean> => {
+      // Find current moment
+      const currentMoment = momentsData?.list.find((m) => m.id === momentId);
+      if (!currentMoment) return false;
+
+      const wasLiked = currentMoment.statsData.isLiked;
+
+      // Optimistic update
+      setMomentsData((prev) =>
+        prev
+          ? {
+              ...prev,
+              list: prev.list.map((m) =>
+                m.id === momentId
+                  ? {
+                      ...m,
+                      statsData: {
+                        ...m.statsData,
+                        isLiked: !wasLiked,
+                        likeCount: wasLiked
+                          ? Math.max(0, m.statsData.likeCount - 1)
+                          : m.statsData.likeCount + 1,
+                      },
+                    }
+                  : m
+              ),
+            }
+          : prev
+      );
+
+      try {
+        const response = wasLiked
+          ? await unlikeMomentApi(momentId)
+          : await likeMomentApi(momentId);
+
+        if (response.code !== 200) {
+          // Rollback on failure
+          setMomentsData((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  list: prev.list.map((m) =>
+                    m.id === momentId
+                      ? {
+                          ...m,
+                          statsData: {
+                            ...m.statsData,
+                            isLiked: wasLiked,
+                            likeCount: wasLiked
+                              ? m.statsData.likeCount + 1
+                              : Math.max(0, m.statsData.likeCount - 1),
+                          },
+                        }
+                      : m
+                  ),
+                }
+              : prev
+          );
+          return false;
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Toggle moment like error:', error);
+        // Rollback on error
+        setMomentsData((prev) =>
+          prev
+            ? {
+                ...prev,
+                list: prev.list.map((m) =>
+                  m.id === momentId
+                    ? {
+                        ...m,
+                        statsData: {
+                          ...m.statsData,
+                          isLiked: wasLiked,
+                          likeCount: wasLiked
+                            ? m.statsData.likeCount + 1
+                            : Math.max(0, m.statsData.likeCount - 1),
+                        },
+                      }
+                    : m
+                ),
+              }
+            : prev
+        );
+        return false;
+      }
+    },
+    [momentsData]
+  );
+
   // Refresh all data
   const refreshAll = useCallback(async () => {
     await Promise.all([
       fetchHeaderData(),
       fetchProfileInfo(),
       fetchSkillsList(1),
+      fetchMomentsList(1),
     ]);
-  }, [fetchHeaderData, fetchProfileInfo, fetchSkillsList]);
+  }, [fetchHeaderData, fetchProfileInfo, fetchSkillsList, fetchMomentsList]);
 
   // Follow user
   const followUser = useCallback(async (): Promise<boolean> => {
@@ -467,32 +662,42 @@ export function useOtherUserProfile({
     headerData,
     profileInfo,
     skillsData,
+    momentsData,
 
     // Loading states
     headerLoading,
     profileLoading,
     skillsLoading,
+    momentsLoading,
 
     // Error states
     headerError,
     profileError,
     skillsError,
+    momentsError,
 
     // Pagination
     skillsPage,
     hasMoreSkills,
+    momentsPage,
+    hasMoreMoments,
 
     // Actions
     fetchHeaderData,
     fetchProfileInfo,
     fetchSkillsList,
     loadMoreSkills,
+    fetchMomentsList,
+    loadMoreMoments,
     refreshAll,
 
     // User actions
     followUser,
     unfollowUser,
     unlockWechat,
+
+    // Moment actions
+    toggleMomentLike,
   };
 }
 

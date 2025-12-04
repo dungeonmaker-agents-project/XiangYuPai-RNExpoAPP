@@ -188,6 +188,73 @@ export async function unfollowUser(
   return apiClient.delete<void>(`/xypai-app-bff/api/profile/${targetUserId}/follow`);
 }
 
+// ==================== Moments API Functions ====================
+
+/**
+ * 动态项 (与后端MomentItemVO对应)
+ */
+export interface MomentItemResponse {
+  id: string;
+  type: 'image' | 'video';
+  mediaData: {
+    coverUrl: string;
+    aspectRatio: number;
+    duration?: number;
+  };
+  textData: {
+    title: string;
+  };
+  authorData: {
+    userId: string;
+    avatar: string;
+    nickname: string;
+  };
+  statsData: {
+    likeCount: number;
+    isLiked: boolean;
+  };
+}
+
+/**
+ * 动态列表响应
+ */
+export interface MomentsListResponse {
+  list: MomentItemResponse[];
+  hasMore: boolean;
+  total: number;
+}
+
+/**
+ * 获取用户动态列表
+ */
+export async function getUserMoments(
+  userId: number,
+  pageNum: number = 1,
+  pageSize: number = 10
+): Promise<ApiResponse<MomentsListResponse>> {
+  return apiClient.get<MomentsListResponse>(
+    `/xypai-app-bff/api/profile/${userId}/moments?pageNum=${pageNum}&pageSize=${pageSize}`
+  );
+}
+
+/**
+ * 点赞动态
+ */
+export async function likeMoment(
+  momentId: string
+): Promise<ApiResponse<void>> {
+  return apiClient.post<void>(`/xypai-app-bff/api/profile/moment/${momentId}/like`, {});
+}
+
+/**
+ * 取消点赞动态
+ */
+export async function unlikeMoment(
+  momentId: string
+): Promise<ApiResponse<void>> {
+  return apiClient.delete<void>(`/xypai-app-bff/api/profile/moment/${momentId}/like`);
+}
+
 // ==================== Export ====================
 
 export const otherUserProfileApi = {
@@ -197,6 +264,10 @@ export const otherUserProfileApi = {
   unlockWechat,
   followUser,
   unfollowUser,
+  // Moments API
+  getUserMoments,
+  likeMoment,
+  unlikeMoment,
 };
 
 export default otherUserProfileApi;

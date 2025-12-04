@@ -28,7 +28,6 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   Image,
   TouchableOpacity,
   ActivityIndicator,
@@ -249,20 +248,15 @@ const SkillsContentArea: React.FC<SkillsContentAreaProps> = ({
   }
 
   return (
-    <FlatList
-      style={styles.container}
-      contentContainerStyle={styles.listContent}
-      data={skillsData.list}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => (
-        <SkillCard skill={item} onPress={handleSkillPress} />
-      )}
-      ItemSeparatorComponent={() => <View style={styles.separator} />}
-      ListFooterComponent={renderFooter}
-      onEndReached={onLoadMore}
-      onEndReachedThreshold={0.3}
-      showsVerticalScrollIndicator={false}
-    />
+    <View style={[styles.container, styles.listContent]}>
+      {skillsData.list.map((skill, index) => (
+        <React.Fragment key={skill.id}>
+          <SkillCard skill={skill} onPress={handleSkillPress} />
+          {index < skillsData.list.length - 1 && <View style={styles.separator} />}
+        </React.Fragment>
+      ))}
+      {renderFooter()}
+    </View>
   );
 };
 

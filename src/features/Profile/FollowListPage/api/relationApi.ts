@@ -64,6 +64,13 @@ export interface ApiResponse<T = any> {
   data: T | null;
 }
 
+/**
+ * 批量关系状态响应
+ */
+export interface BatchRelationStatusResponse {
+  [userId: string]: RelationStatus;
+}
+
 // #endregion
 
 // #region API端点配置
@@ -75,6 +82,8 @@ const API_ENDPOINTS = {
   FANS_LIST: '/xypai-user/api/user/relation/fans',
   // 关注/取消关注
   FOLLOW_USER: '/xypai-user/api/user/relation/follow',
+  // 批量获取关系状态
+  BATCH_STATUS: '/xypai-user/api/user/relation/batch-status',
 } as const;
 
 // #endregion
@@ -219,6 +228,34 @@ class RelationAPI {
       return this.unfollowUser(userId);
     } else {
       return this.followUser(userId);
+    }
+  }
+
+  /**
+   * 批量获取关系状态
+   *
+   * @param userIds 目标用户ID列表
+   * @returns Map<用户ID, 关系状态>
+   */
+  async batchGetRelationStatus(
+    userIds: (number | string)[]
+  ): Promise<BatchRelationStatusResponse> {
+    try {
+      const url = API_ENDPOINTS.BATCH_STATUS;
+      console.log('[RelationAPI] 批量获取关系状态:', url, userIds);
+
+      const response = await apiClient.post<ApiResponse<BatchRelationStatusResponse>>(url, {
+        userIds: userIds.map((id) => (typeof id === 'string' ? parseInt(id, 10) : id)),
+      });
+
+      if (response.code === 200 && response.data) {
+        return response.data;
+      }
+
+      return {};
+    } catch (error) {
+      console.error('[RelationAPI] batchGetRelationStatus error:', error);
+      throw error;
     }
   }
 }

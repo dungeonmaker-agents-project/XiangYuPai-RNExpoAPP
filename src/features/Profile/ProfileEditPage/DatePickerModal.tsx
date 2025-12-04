@@ -1,26 +1,30 @@
 /**
- * DatePickerModal - 日期选择器弹窗
+ * DatePickerModal - 日期选择器弹窗（纯 JS 实现）
  *
  * 功能：
  * - 底部弹出的日期选择器
- * - 支持年月日滚轮选择
+ * - 年月日三列滚轮选择
  * - 确认/取消操作
+ * - 不依赖原生模块，兼容 Expo managed workflow
  *
  * @author XyPai Team
  * @since 2025-12-02
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
+  ScrollView,
+  Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
+// #region Types & Constants
 interface DatePickerModalProps {
   visible: boolean;
   title: string;
@@ -41,6 +45,10 @@ const COLORS = {
   OVERLAY: 'rgba(0, 0, 0, 0.5)',
 } as const;
 
+const ITEM_HEIGHT = 44;
+const VISIBLE_ITEMS = 5;
+const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+
 // 默认年龄范围：18-60岁
 const getDefaultMinDate = () => {
   const date = new Date();
@@ -56,10 +64,136 @@ const getDefaultMaxDate = () => {
 
 const getDefaultDate = () => {
   const date = new Date();
-  date.setFullYear(date.getFullYear() - 25); // 默认25岁
+  date.setFullYear(date.getFullYear() - 25);
   return date;
 };
 
+// 获取某年某月的天数
+const getDaysInMonth = (year: number, month: number): number => {
+  return new Date(year, month + 1, 0).getDate();
+};
+// #endregion
+
+// #region WheelPicker Component
+interface WheelPickerProps {
+  data: { label: string; value: number }[];
+  selectedValue: number;
+  onValueChange: (value: number) => void;
+}
+
+const WheelPicker: React.FC<WheelPickerProps> = ({ data, selectedValue, onValueChange }) => {
+  const scrollViewRef = useRef<ScrollView>(null);
+  const isScrolling = useRef(false);
+
+  // 获取选中项的索引
+  const selectedIndex = data.findIndex(item => item.value === selectedValue);
+
+  // 初始化滚动位置
+  useEffect(() => {
+    if (scrollViewRef.current && selectedIndex >= 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: selectedIndex * ITEM_HEIGHT,
+          animated: false,
+        });
+      }, 50);
+    }
+  }, [selectedIndex]);
+
+  // 滚动结束时计算选中项
+  const handleScrollEnd = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetY = event.nativeEvent.contentOffset.y;
+    const index = Math.round(offsetY / ITEM_HEIGHT);
+    const clampedIndex = Math.max(0, Math.min(index, data.length - 1));
+
+    if (data[clampedIndex] && data[clampedIndex].value !== selectedValue) {
+      onValueChange(data[clampedIndex].value);
+    }
+
+    // 确保对齐
+    scrollViewRef.current?.scrollTo({
+      y: clampedIndex * ITEM_HEIGHT,
+      animated: true,
+    });
+    isScrolling.current = false;
+  }, [data, selectedValue, onValueChange]);
+
+  const handleScrollBegin = () => {
+    isScrolling.current = true;
+  };
+
+  // 渲染空白占位
+  const renderPadding = () => (
+    <View style={{ height: ITEM_HEIGHT * 2 }} />
+  );
+
+  return (
+    <View style={wheelStyles.container}>
+      {/* 选中区域高亮 */}
+      <View style={wheelStyles.highlight} pointerEvents="none" />
+
+      <ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ITEM_HEIGHT}
+        decelerationRate="fast"
+        onScrollBeginDrag={handleScrollBegin}
+        onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={(e) => {
+          if (!isScrolling.current) handleScrollEnd(e);
+        }}
+      >
+        {renderPadding()}
+        {data.map((item, index) => {
+          const isSelected = item.value === selectedValue;
+          return (
+            <View key={`${item.value}-${index}`} style={wheelStyles.item}>
+              <Text style={[wheelStyles.itemText, isSelected && wheelStyles.selectedText]}>
+                {item.label}
+              </Text>
+            </View>
+          );
+        })}
+        {renderPadding()}
+      </ScrollView>
+    </View>
+  );
+};
+
+const wheelStyles = StyleSheet.create({
+  container: {
+    height: PICKER_HEIGHT,
+    flex: 1,
+    position: 'relative',
+  },
+  highlight: {
+    position: 'absolute',
+    top: ITEM_HEIGHT * 2,
+    left: 0,
+    right: 0,
+    height: ITEM_HEIGHT,
+    backgroundColor: COLORS.BG_GRAY,
+    borderRadius: 8,
+    zIndex: -1,
+  },
+  item: {
+    height: ITEM_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemText: {
+    fontSize: 18,
+    color: COLORS.TEXT_SECONDARY,
+  },
+  selectedText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: COLORS.TEXT_PRIMARY,
+  },
+});
+// #endregion
+
+// #region DatePickerModal Component
 const DatePickerModal: React.FC<DatePickerModalProps> = ({
   visible,
   title,
@@ -69,93 +203,112 @@ const DatePickerModal: React.FC<DatePickerModalProps> = ({
   onSelect,
   onCancel,
 }) => {
-  const [selectedDate, setSelectedDate] = useState<Date>(currentDate || getDefaultDate());
+  const defaultDate = currentDate || getDefaultDate();
+  const [year, setYear] = useState(defaultDate.getFullYear());
+  const [month, setMonth] = useState(defaultDate.getMonth());
+  const [day, setDay] = useState(defaultDate.getDate());
 
-  // 当弹窗打开时，重置日期
+  // 重置日期
   useEffect(() => {
     if (visible) {
-      setSelectedDate(currentDate || getDefaultDate());
+      const date = currentDate || getDefaultDate();
+      setYear(date.getFullYear());
+      setMonth(date.getMonth());
+      setDay(date.getDate());
     }
   }, [visible, currentDate]);
 
-  const handleDateChange = (event: DateTimePickerEvent, date?: Date) => {
-    if (date) {
-      setSelectedDate(date);
+  // 生成年份列表
+  const yearData = React.useMemo(() => {
+    const years: { label: string; value: number }[] = [];
+    for (let y = minDate.getFullYear(); y <= maxDate.getFullYear(); y++) {
+      years.push({ label: `${y}年`, value: y });
     }
-  };
+    return years;
+  }, [minDate, maxDate]);
+
+  // 生成月份列表
+  const monthData = React.useMemo(() => {
+    const months: { label: string; value: number }[] = [];
+    for (let m = 0; m < 12; m++) {
+      months.push({ label: `${m + 1}月`, value: m });
+    }
+    return months;
+  }, []);
+
+  // 生成日期列表（根据年月动态变化）
+  const dayData = React.useMemo(() => {
+    const daysInMonth = getDaysInMonth(year, month);
+    const days: { label: string; value: number }[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      days.push({ label: `${d}日`, value: d });
+    }
+    return days;
+  }, [year, month]);
+
+  // 月份变化时，校正日期
+  useEffect(() => {
+    const maxDay = getDaysInMonth(year, month);
+    if (day > maxDay) {
+      setDay(maxDay);
+    }
+  }, [year, month, day]);
 
   const handleConfirm = () => {
+    const selectedDate = new Date(year, month, day);
     onSelect(selectedDate);
   };
 
-  // iOS 样式
-  if (Platform.OS === 'ios') {
-    return (
-      <Modal
-        visible={visible}
-        transparent
-        animationType="slide"
-        onRequestClose={onCancel}
-      >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={onCancel}
-        >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            {/* 标题栏 */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={onCancel} style={styles.headerButton}>
-                <Text style={styles.cancelText}>取消</Text>
-              </TouchableOpacity>
-              <Text style={styles.title}>{title}</Text>
-              <TouchableOpacity onPress={handleConfirm} style={styles.headerButton}>
-                <Text style={styles.confirmText}>确定</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* 日期选择器 */}
-            <View style={styles.pickerContainer}>
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="spinner"
-                minimumDate={minDate}
-                maximumDate={maxDate}
-                onChange={handleDateChange}
-                locale="zh-CN"
-                style={styles.picker}
-              />
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-    );
-  }
-
-  // Android 样式
   return (
-    <>
-      {visible && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          minimumDate={minDate}
-          maximumDate={maxDate}
-          onChange={(event, date) => {
-            if (event.type === 'dismissed') {
-              onCancel();
-            } else if (event.type === 'set' && date) {
-              onSelect(date);
-            }
-          }}
-        />
-      )}
-    </>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onCancel}
+    >
+      <TouchableOpacity
+        style={styles.overlay}
+        activeOpacity={1}
+        onPress={onCancel}
+      >
+        <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          {/* 标题栏 */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onCancel} style={styles.headerButton}>
+              <Text style={styles.cancelText}>取消</Text>
+            </TouchableOpacity>
+            <Text style={styles.title}>{title}</Text>
+            <TouchableOpacity onPress={handleConfirm} style={styles.headerButton}>
+              <Text style={styles.confirmText}>确定</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* 日期选择器 */}
+          <View style={styles.pickerContainer}>
+            <WheelPicker
+              data={yearData}
+              selectedValue={year}
+              onValueChange={setYear}
+            />
+            <WheelPicker
+              data={monthData}
+              selectedValue={month}
+              onValueChange={setMonth}
+            />
+            <WheelPicker
+              data={dayData}
+              selectedValue={day}
+              onValueChange={setDay}
+            />
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Modal>
   );
 };
+// #endregion
 
+// #region Styles
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
@@ -166,7 +319,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.WHITE,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   header: {
     flexDirection: 'row',
@@ -198,13 +351,11 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_PRIMARY,
   },
   pickerContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
     paddingVertical: 10,
-    alignItems: 'center',
-  },
-  picker: {
-    width: '100%',
-    height: 200,
   },
 });
+// #endregion
 
 export default DatePickerModal;

@@ -96,30 +96,6 @@ const INITIAL_FORM_DATA: SkillFormData = {
   price: 0,
   priceUnit: '局',
 };
-
-// Mock数据（当API不可用时使用）
-const MOCK_SKILLS: SkillConfigItem[] = [
-  { id: 'wzry', name: '王者荣耀', icon: '👑', type: 'online', category: '游戏' },
-  { id: 'lol', name: '英雄联盟', icon: '⚔️', type: 'online', category: '游戏' },
-  { id: 'pubg', name: '和平精英', icon: '🎮', type: 'online', category: '游戏' },
-  { id: 'hyld', name: '荒野乱斗', icon: '🎯', type: 'online', category: '游戏' },
-  { id: 'tanding', name: '探店', icon: '🎪', type: 'offline', category: '生活' },
-  { id: 'siying', name: '私影', icon: '📸', type: 'offline', category: '生活' },
-  { id: 'taiqiu', name: '台球', icon: '🎱', type: 'offline', category: '运动' },
-  { id: 'kge', name: 'K歌', icon: '🎤', type: 'offline', category: '娱乐' },
-  { id: 'hejiu', name: '喝酒', icon: '🍺', type: 'offline', category: '生活' },
-  { id: 'anmo', name: '按摩', icon: '💆', type: 'offline', category: '服务' },
-];
-
-const MOCK_RANK_OPTIONS = {
-  servers: ['QQ区', '微信区'],
-  ranksBySkill: {
-    wzry: ['永恒钻石', '至尊星耀', '最强王者', '非凡王者', '无双王者', '荣耀王者', '传奇王者'],
-    lol: ['黄金', '铂金', '翡翠', '钻石', '超凡大师', '傲世宗师', '最强王者'],
-    pubg: ['铂金', '钻石', '皇冠', '王牌', '无敌战神', '荣耀战神'],
-    hyld: ['黄金', '钻石', '神话', '传奇'],
-  } as Record<string, string[]>,
-};
 // #endregion
 
 // #region 5. Custom Hooks
@@ -129,6 +105,7 @@ const useSkillsEditLogic = (props: SkillsEditPageProps) => {
   // 配置数据状态
   const [config, setConfig] = useState<SkillConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // 表单数据状态
@@ -147,16 +124,12 @@ const useSkillsEditLogic = (props: SkillsEditPageProps) => {
   const loadSkillConfig = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await skillApi.getSkillConfig();
       setConfig(data);
-    } catch (error) {
-      console.warn('获取技能配置失败，使用Mock数据:', error);
-      // 使用Mock数据
-      setConfig({
-        skills: MOCK_SKILLS,
-        rankOptions: MOCK_RANK_OPTIONS,
-        timeOptions: { startHour: 0, endHour: 23, intervalMinutes: 30 },
-      });
+    } catch (err) {
+      console.error('获取技能配置失败:', err);
+      setError('加载配置失败，请检查网络后重试');
     } finally {
       setLoading(false);
     }
@@ -294,6 +267,7 @@ const useSkillsEditLogic = (props: SkillsEditPageProps) => {
   return {
     config,
     loading,
+    error,
     submitting,
     formData,
     rankModalVisible,
@@ -307,6 +281,7 @@ const useSkillsEditLogic = (props: SkillsEditPageProps) => {
     handleBack,
     handleCancel,
     handleComplete,
+    loadSkillConfig,
   };
 };
 // #endregion
@@ -619,6 +594,7 @@ const SkillsEditPage: React.FC<SkillsEditPageProps> = (props) => {
   const {
     config,
     loading,
+    error,
     submitting,
     formData,
     rankModalVisible,
@@ -631,6 +607,7 @@ const SkillsEditPage: React.FC<SkillsEditPageProps> = (props) => {
     updateFormField,
     handleCancel,
     handleComplete,
+    loadSkillConfig,
   } = useSkillsEditLogic(props);
 
   // 获取当前技能的段位选项
@@ -643,6 +620,21 @@ const SkillsEditPage: React.FC<SkillsEditPageProps> = (props) => {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.PRIMARY} />
           <Text style={styles.loadingText}>加载中...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.WHITE} />
+        <View style={styles.loadingContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={COLORS.ERROR} />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadSkillConfig}>
+            <Text style={styles.retryButtonText}>重试</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -675,7 +667,7 @@ const SkillsEditPage: React.FC<SkillsEditPageProps> = (props) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* 技能选择器 */}
         <SkillSelectorArea
-          skills={config?.skills || MOCK_SKILLS}
+          skills={config?.skills || []}
           skillType={formData.skillType}
           selectedId={formData.skillConfigId}
           onSkillSelect={handleSkillSelect}
@@ -803,8 +795,8 @@ const SkillsEditPage: React.FC<SkillsEditPageProps> = (props) => {
       {/* 弹窗 */}
       <RankPickerModal
         visible={rankModalVisible}
-        servers={config?.rankOptions?.servers || MOCK_RANK_OPTIONS.servers}
-        ranks={currentRanks.length > 0 ? currentRanks : MOCK_RANK_OPTIONS.ranksBySkill.wzry}
+        servers={config?.rankOptions?.servers || []}
+        ranks={currentRanks}
         selectedServer={formData.server}
         selectedRank={formData.rank}
         onClose={() => setRankModalVisible(false)}
@@ -857,6 +849,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 14,
     color: COLORS.TEXT_SECONDARY,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: COLORS.ERROR,
+    textAlign: 'center',
+    paddingHorizontal: 32,
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 20,
+  },
+  retryButtonText: {
+    fontSize: 14,
+    color: COLORS.WHITE,
+    fontWeight: '500',
   },
 
   // Header

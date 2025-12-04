@@ -14,8 +14,9 @@
 import { useProfileStore } from '@/stores/profileStore';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     FlatList,
     SafeAreaView,
@@ -26,6 +27,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { MAX_OCCUPATION_COUNT, occupationApi } from './api/occupationApi';
 // #endregion
 
 // #region 3-7. Types, Constants, Utils, State & Logic
@@ -60,77 +62,105 @@ const PRESET_OCCUPATIONS = [
 const useOccupationSelectLogic = (props: OccupationSelectPageProps) => {
   const router = useRouter();
   const updateUserProfile = useProfileStore(state => state.updateUserProfile);
-  
+
   const [searchText, setSearchText] = useState('');
   const [selectedOccupations, setSelectedOccupations] = useState<string[]>(
     props.currentOccupations || []
   );
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 页面加载时获取已选职业
+  useEffect(() => {
+    const fetchOccupations = async () => {
+      try {
+        setIsLoading(true);
+        const response = await occupationApi.getOccupations();
+        if (response.code === 200 && response.data) {
+          setSelectedOccupations(response.data);
+        }
+      } catch (error) {
+        console.error('获取职业列表失败:', error);
+        // 加载失败时使用 props 中的数据
+        if (props.currentOccupations) {
+          setSelectedOccupations(props.currentOccupations);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOccupations();
+  }, []);
+
   // 过滤职业列表
   const filteredOccupations = searchText.trim()
-    ? PRESET_OCCUPATIONS.filter(occ => 
+    ? PRESET_OCCUPATIONS.filter(occ =>
         occ.toLowerCase().includes(searchText.toLowerCase())
       )
     : PRESET_OCCUPATIONS;
-  
+
   const handleCancel = () => {
     if (router.canGoBack()) {
       router.back();
     }
   };
-  
+
   const handleToggleOccupation = (occupation: string) => {
     setSelectedOccupations(prev => {
       if (prev.includes(occupation)) {
         // 取消选择
         return prev.filter(item => item !== occupation);
       } else {
-        // 选择（最多选择3个）
-        if (prev.length >= 3) {
-          Alert.alert('提示', '最多可选择3个职业');
+        // 选择（最多选择5个）
+        if (prev.length >= MAX_OCCUPATION_COUNT) {
+          Alert.alert('提示', `最多可选择${MAX_OCCUPATION_COUNT}个职业`);
           return prev;
         }
         return [...prev, occupation];
       }
     });
   };
-  
-  const handleDone = () => {
+
+  const handleDone = async () => {
     if (selectedOccupations.length === 0) {
       Alert.alert('提示', '请至少选择一个职业');
       return;
     }
-    
-    console.log('💾 保存职业（假数据模式）');
-    console.log('   选中的职业:', selectedOccupations);
-    
-    // 更新到Store
-    updateUserProfile({ 
-      occupations: selectedOccupations,
-      occupation: selectedOccupations[0], // 主职业为第一个
-    });
-    
-    Alert.alert(
-      '成功',
-      `职业已更新\n\n💡 开发提示：这是前端假数据模式，仅保存在本地`,
-      [
-        {
-          text: '确定',
-          onPress: () => {
-            if (router.canGoBack()) {
-              router.back();
-            }
-          },
-        },
-      ]
-    );
+
+    try {
+      setIsSaving(true);
+      const response = await occupationApi.updateOccupations(selectedOccupations);
+
+      if (response.code === 200) {
+        // 同步更新到本地 Store
+        updateUserProfile({
+          occupations: selectedOccupations,
+          occupation: selectedOccupations[0], // 主职业为第一个
+        });
+
+        // 保存成功，返回上一页
+        if (router.canGoBack()) {
+          router.back();
+        }
+      } else {
+        Alert.alert('保存失败', response.message || response.msg || '请稍后重试');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : '请稍后重试';
+      Alert.alert('保存失败', errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
   };
-  
+
   return {
     searchText,
     setSearchText,
     selectedOccupations,
     filteredOccupations,
+    isLoading,
+    isSaving,
     handleCancel,
     handleToggleOccupation,
     handleDone,
@@ -145,6 +175,8 @@ const OccupationSelectPage: React.FC<OccupationSelectPageProps> = (props) => {
     setSearchText,
     selectedOccupations,
     filteredOccupations,
+    isLoading,
+    isSaving,
     handleCancel,
     handleToggleOccupation,
     handleDone,
@@ -186,12 +218,16 @@ const OccupationSelectPage: React.FC<OccupationSelectPageProps> = (props) => {
       
       {/* 顶部导航栏 */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
-          <Text style={styles.cancelButtonText}>取消</Text>
+        <TouchableOpacity onPress={handleCancel} style={styles.cancelButton} disabled={isSaving}>
+          <Text style={[styles.cancelButtonText, isSaving && styles.disabledText]}>取消</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>职业</Text>
-        <TouchableOpacity onPress={handleDone} style={styles.doneButton}>
-          <Text style={styles.doneButtonText}>完成</Text>
+        <TouchableOpacity onPress={handleDone} style={styles.doneButton} disabled={isSaving}>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={COLORS.PRIMARY} />
+          ) : (
+            <Text style={styles.doneButtonText}>完成</Text>
+          )}
         </TouchableOpacity>
       </View>
       
@@ -236,23 +272,30 @@ const OccupationSelectPage: React.FC<OccupationSelectPageProps> = (props) => {
       </View>
       
       {/* 职业标签列表 */}
-      <FlatList
-        data={filteredOccupations}
-        renderItem={renderOccupationTag}
-        keyExtractor={(item) => item}
-        numColumns={3}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>未找到相关职业</Text>
-          </View>
-        }
-      />
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+          <Text style={styles.loadingText}>加载中...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredOccupations}
+          renderItem={renderOccupationTag}
+          keyExtractor={(item) => item}
+          numColumns={3}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>未找到相关职业</Text>
+            </View>
+          }
+        />
+      )}
       
       {/* 底部提示 */}
       <View style={styles.tipContainer}>
-        <Text style={styles.tipText}>💡 最多可选择3个职业</Text>
+        <Text style={styles.tipText}>最多可选择{MAX_OCCUPATION_COUNT}个职业</Text>
       </View>
     </SafeAreaView>
   );
@@ -378,6 +421,19 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: COLORS.TEXT_SECONDARY,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: COLORS.TEXT_SECONDARY,
+  },
+  disabledText: {
+    color: COLORS.TEXT_TERTIARY,
   },
   tipContainer: {
     padding: 16,

@@ -6,7 +6,7 @@
  *
  * 功能：
  * - 根据activeTab渲染不同内容
- * - 动态Tab：显示用户发布的动态
+ * - 动态Tab：显示用户发布的动态 (MomentsContentArea)
  * - 资料Tab：显示用户详细资料
  * - 技能Tab：显示用户技能列表
  *
@@ -22,20 +22,17 @@
 
 // #region 2. Imports
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 
 // Components
-import DynamicContent from '../MainPage/TabContentArea/DynamicContent';
+import MomentsContentArea from './MomentsContentArea';
 import ProfileContentArea from './ProfileContentArea';
 import SkillsContentArea from './SkillsContentArea';
 
-// API
-import { feedApi } from '@/services/api/feedApi';
-
 // Types
-import type { TabType, ProfileInfoData, SkillsListData } from './types';
+import type { TabType, ProfileInfoData, SkillsListData, MomentsListData } from './types';
 
 // #endregion
 
@@ -48,20 +45,28 @@ interface TabContentAreaProps {
   // API data passed from parent
   profileInfo?: ProfileInfoData | null;
   skillsData?: SkillsListData | null;
+  momentsData?: MomentsListData | null;
   // Loading states
   profileLoading?: boolean;
   skillsLoading?: boolean;
+  momentsLoading?: boolean;
   // Error states
   profileError?: string | null;
   skillsError?: string | null;
+  momentsError?: string | null;
   // Pagination
   hasMoreSkills?: boolean;
+  hasMoreMoments?: boolean;
   // Actions
   onLoadMoreSkills?: () => void;
+  onLoadMoreMoments?: () => void;
   onRefreshProfile?: () => void;
   onRefreshSkills?: () => void;
+  onRefreshMoments?: () => void;
   onUnlockWechat?: () => void;
   onSkillPress?: (skillId: number) => void;
+  onMomentPress?: (momentId: string) => void;
+  onMomentLikePress?: (momentId: string) => void;
 }
 
 // #endregion
@@ -78,77 +83,30 @@ const TabContentArea: React.FC<TabContentAreaProps> = ({
   // API data
   profileInfo,
   skillsData,
+  momentsData,
   // Loading states
   profileLoading = false,
   skillsLoading = false,
+  momentsLoading = false,
   // Error states
   profileError = null,
   skillsError = null,
+  momentsError = null,
   // Pagination
   hasMoreSkills = false,
+  hasMoreMoments = false,
   // Actions
   onLoadMoreSkills,
+  onLoadMoreMoments,
   onRefreshProfile,
   onRefreshSkills,
+  onRefreshMoments,
   onUnlockWechat,
   onSkillPress,
+  onMomentPress,
+  onMomentLikePress,
 }) => {
   const router = useRouter();
-
-  // Local state for user posts (动态)
-  const [posts, setPosts] = useState<any[]>([]);
-  const [postsLoading, setPostsLoading] = useState(false);
-  const [postsPage, setPostsPage] = useState(1);
-  const [hasMorePosts, setHasMorePosts] = useState(true);
-
-  // Load user posts when dynamics tab is active
-  const loadUserPosts = useCallback(async (page: number = 1) => {
-    if (!userId) return;
-
-    try {
-      setPostsLoading(true);
-      console.log(`[TabContentArea] 加载用户 ${userId} 的动态，第 ${page} 页`);
-
-      const response = await feedApi.getUserFeedList(userId, {
-        pageNum: page,
-        pageSize: 20,
-      });
-
-      if (page === 1) {
-        setPosts(response.list || []);
-      } else {
-        setPosts(prev => [...prev, ...(response.list || [])]);
-      }
-      setHasMorePosts(response.hasMore);
-      setPostsPage(page);
-
-      console.log(`[TabContentArea] 动态加载完成，共 ${response.list?.length || 0} 条`);
-    } catch (error) {
-      console.error('[TabContentArea] 加载动态失败:', error);
-    } finally {
-      setPostsLoading(false);
-    }
-  }, [userId]);
-
-  // Load posts when dynamics tab becomes active
-  useEffect(() => {
-    if (activeTab === 'dynamics' && posts.length === 0 && !postsLoading) {
-      loadUserPosts(1);
-    }
-  }, [activeTab, posts.length, postsLoading, loadUserPosts]);
-
-  // Handle post press
-  const handlePostPress = (postId: string) => {
-    console.log('点击动态:', postId);
-    router.push(`/feed/${postId}` as any);
-  };
-
-  // Handle load more posts
-  const handleLoadMorePosts = () => {
-    if (hasMorePosts && !postsLoading) {
-      loadUserPosts(postsPage + 1);
-    }
-  };
 
   // Handle skill press
   const handleSkillPress = (skillId: number) => {
@@ -159,15 +117,28 @@ const TabContentArea: React.FC<TabContentAreaProps> = ({
     }
   };
 
+  // Handle moment press
+  const handleMomentPress = (momentId: string) => {
+    if (onMomentPress) {
+      onMomentPress(momentId);
+    } else {
+      router.push(`/feed/${momentId}` as any);
+    }
+  };
+
   // Render content based on active tab
   switch (activeTab) {
     case 'dynamics':
       return (
-        <DynamicContent
-          posts={posts}
-          loading={postsLoading}
-          onPostPress={handlePostPress}
-          onLoadMore={handleLoadMorePosts}
+        <MomentsContentArea
+          momentsData={momentsData || null}
+          loading={momentsLoading}
+          error={momentsError}
+          hasMore={hasMoreMoments}
+          onLoadMore={onLoadMoreMoments}
+          onRefresh={onRefreshMoments}
+          onMomentPress={handleMomentPress}
+          onLikePress={onMomentLikePress}
         />
       );
 
