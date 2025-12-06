@@ -70,6 +70,11 @@ const SkillCard: React.FC<SkillCardProps> = ({ skill, onPress }) => {
     statsData,
   } = skill;
 
+  // 防御性检查：如果必要数据为空则不渲染
+  if (!providerData || !skillInfo || !priceData) {
+    return null;
+  }
+
   return (
     <TouchableOpacity
       style={styles.skillCard}
@@ -128,7 +133,7 @@ const SkillCard: React.FC<SkillCardProps> = ({ skill, onPress }) => {
         </View>
 
         {/* Row 3: Tags */}
-        {skillInfo.tags.length > 0 && (
+        {skillInfo.tags && skillInfo.tags.length > 0 && (
           <View style={styles.tagsRow}>
             {skillInfo.tags.slice(0, 3).map((tag, index) => (
               <Text key={index} style={styles.tagText}>

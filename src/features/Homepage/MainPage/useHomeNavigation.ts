@@ -23,12 +23,30 @@ export const useHomeNavigation = (navigation?: any) => {
     });
   }, [router]);
 
-  // 功能点击处理 - 跳转到服务详情页
+  // 功能点击处理 - 统一跳转到服务列表页
   const handleFunctionPress = useCallback((functionId: string) => {
-    console.log('[useHomeNavigation] 🧭 导航: 首页 → 服务详情', { functionId });
+    console.log('[useHomeNavigation] 🧭 导航: 首页 → 服务列表页', { functionId });
+
+    // 功能ID到skillType的映射
+    const skillTypeMap: Record<string, string> = {
+      '1': '王者荣耀',
+      '2': '英雄联盟',
+      '3': '和平精英',
+      '4': '荒野乱斗',
+      '5': '探店',
+      '6': '私影',
+      '7': '台球',
+      '8': 'K歌',
+      '9': '喝酒',
+      '10': '按摩',
+    };
+
+    const skillType = skillTypeMap[functionId] || '王者荣耀';
+
+    // 统一跳转到服务列表页，传递skillType参数
     router.push({
-      pathname: '/(tabs)/homepage/service-detail',
-      params: { serviceType: functionId },
+      pathname: '/(tabs)/homepage/game-player-list',
+      params: { skillType },
     });
   }, [router]);
 

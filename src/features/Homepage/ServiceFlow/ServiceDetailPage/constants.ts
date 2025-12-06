@@ -1,259 +1,182 @@
 /**
- * ServiceDetailPage 常量配置
+ * ServiceDetailPage - 服务详情页常量配置
+ *
+ * 基于 详情页_结构文档.md STEP 4 布局定位
  */
 
 import { Dimensions } from 'react-native';
-import type { ServiceCategory, ServiceType } from './types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-// 服务详情页面常量
-export const SERVICE_DETAIL_CONSTANTS = {
-  // 颜色配置
-  COLORS: {
-    BACKGROUND: '#FFFFFF',
-    SURFACE: '#F8FAFC',
-    PRIMARY: '#6366F1',
-    TEXT: '#1F2937',
-    TEXT_SECONDARY: '#6B7280',
-    TEXT_LIGHT: '#9CA3AF',
-    BORDER: '#E5E7EB',
-    ONLINE: '#10B981',
-    BUSY: '#F59E0B',
-    OFFLINE: '#9CA3AF',
-  },
+// #region 颜色配置
+export const COLORS = {
+  // 基础颜色
+  BACKGROUND: '#FFFFFF',
+  SURFACE: '#F8FAFC',
 
-  // 尺寸配置
-  SIZES: {
-    NAVIGATION_HEIGHT: 56,
-    FILTER_BAR_HEIGHT: 48,
-    SERVICE_TAG_BAR_HEIGHT: 48,
-    GAME_BANNER_HEIGHT: 100,
-    CARD_PADDING: 16,
-    CARD_SPACING: 12,
-    BORDER_RADIUS: 12,
-    
-    // 卡片尺寸
-    GAME_PROVIDER_CARD_HEIGHT: 160,
-    LIFESTYLE_PROVIDER_CARD_HEIGHT: 180,
-    
-    // 头像尺寸
-    AVATAR_SIZE: 48,
-    STATUS_DOT_SIZE: 12,
-  },
+  // 主题色
+  PRIMARY: '#7C3AED',        // 紫色主题
+  PRIMARY_LIGHT: '#F0E6FF',  // 浅紫色背景
+  GRADIENT_START: '#7C3AED',
+  GRADIENT_END: '#818CF8',
 
-  // 分页配置
-  PAGINATION: {
-    PAGE_SIZE: 20,
-    LOAD_MORE_THRESHOLD: 3,
-  },
+  // 文字颜色
+  TEXT: '#1F2937',
+  TEXT_SECONDARY: '#6B7280',
+  TEXT_LIGHT: '#9CA3AF',
+
+  // 边框
+  BORDER: '#E5E7EB',
+  DIVIDER: '#F0F0F0',
+
+  // 状态颜色
+  ONLINE: '#52C41A',         // 在线绿点
+  PRICE: '#FF4D4F',          // 价格红色
+  RATING: '#FA8C16',         // 评分橙色
+
+  // 标签颜色
+  TAG_CERT_BG: '#FFF7E6',    // 认证标签背景（金色）
+  TAG_CERT_TEXT: '#D4A574',  // 认证标签文字
+  TAG_SKILL_BG: '#F0E6FF',   // 技能标签背景（淡紫色）
+  TAG_SKILL_TEXT: '#7C3AED', // 技能标签文字
+  TAG_HIGHLIGHT_BG: '#F0E6FF', // 精选标签背景
+  TAG_HIGHLIGHT_TEXT: '#7C3AED',
 };
+// #endregion
 
-// 服务类型映射
-export const SERVICE_TYPE_MAP: Record<ServiceType, { name: string; category: ServiceCategory; icon: string }> = {
-  // 游戏类服务
-  honor_of_kings: {
-    name: '王者荣耀',
-    category: 'game',
-    icon: '👑',
-  },
-  league_of_legends: {
-    name: '英雄联盟',
-    category: 'game',
-    icon: '⚔️',
-  },
-  pubg_mobile: {
-    name: '和平精英',
-    category: 'game',
-    icon: '🔫',
-  },
-  brawl_stars: {
-    name: '荒野乱斗',
-    category: 'game',
-    icon: '⭐',
-  },
-  
-  // 生活服务类
-  explore_shop: {
-    name: '探店',
-    category: 'lifestyle',
-    icon: '🏪',
-  },
-  private_cinema: {
-    name: '私影',
-    category: 'lifestyle',
-    icon: '🎬',
-  },
-  billiards: {
-    name: '台球',
-    category: 'lifestyle',
-    icon: '🎱',
-  },
-  ktv: {
-    name: 'K歌',
-    category: 'lifestyle',
-    icon: '🎤',
-  },
-  drinking: {
-    name: '喝酒',
-    category: 'lifestyle',
-    icon: '🍻',
-  },
-  massage: {
-    name: '按摩',
-    category: 'lifestyle',
-    icon: '💆',
-  },
+// #region 尺寸配置
+export const SIZES = {
+  // 屏幕尺寸
+  SCREEN_WIDTH,
+  SCREEN_HEIGHT,
+
+  // 导航栏
+  NAV_HEIGHT: 56,
+  STATUS_BAR_HEIGHT: 44,
+
+  // 游戏卡片轮播
+  GAME_CARD_HEIGHT: SCREEN_HEIGHT * 0.4,  // 约40%屏幕高度
+
+  // 用户信息区
+  USER_INFO_HEIGHT: 70,
+  AVATAR_SIZE: 48,
+  AVATAR_RADIUS: 24,
+  LEVEL_TAG_HEIGHT: 20,
+
+  // 标签区
+  TAG_HEIGHT: 28,
+  TAG_RADIUS: 14,
+
+  // 评价区
+  REVIEW_AVATAR_SIZE: 36,
+  STAR_SIZE: 12,
+
+  // 底部操作栏
+  ACTION_BAR_HEIGHT: 68,
+  BUTTON_HEIGHT: 44,
+  BUTTON_RADIUS: 20,
+
+  // 间距
+  PADDING_H: 16,
+  PADDING_V: 12,
+  GAP_SM: 4,
+  GAP_MD: 8,
+  GAP_LG: 12,
+  GAP_XL: 16,
+
+  // 字体大小
+  FONT_XS: 10,
+  FONT_SM: 12,
+  FONT_MD: 14,
+  FONT_LG: 16,
+  FONT_XL: 18,
+  FONT_XXL: 22,
 };
+// #endregion
 
-// 服务主题配置
-export const SERVICE_THEME_MAP: Record<ServiceType, { primaryColor: string; gradient: string[] }> = {
-  // 游戏类主题
-  honor_of_kings: {
-    primaryColor: '#DAA520',
-    gradient: ['#DAA520', '#FFD700'],
-  },
-  league_of_legends: {
-    primaryColor: '#1E3A8A',
-    gradient: ['#1E3A8A', '#3B82F6'],
-  },
-  pubg_mobile: {
-    primaryColor: '#166534',
-    gradient: ['#166534', '#22C55E'],
-  },
-  brawl_stars: {
-    primaryColor: '#EA580C',
-    gradient: ['#EA580C', '#FB923C'],
-  },
-  
-  // 生活服务类主题
-  explore_shop: {
-    primaryColor: '#1976D2',
-    gradient: ['#1976D2', '#42A5F5'],
-  },
-  private_cinema: {
-    primaryColor: '#1565C0',
-    gradient: ['#1565C0', '#1E88E5'],
-  },
-  billiards: {
-    primaryColor: '#388E3C',
-    gradient: ['#388E3C', '#66BB6A'],
-  },
-  ktv: {
-    primaryColor: '#E91E63',
-    gradient: ['#E91E63', '#F06292'],
-  },
-  drinking: {
-    primaryColor: '#F57C00',
-    gradient: ['#F57C00', '#FFA726'],
-  },
-  massage: {
-    primaryColor: '#7B1FA2',
-    gradient: ['#7B1FA2', '#AB47BC'],
-  },
+// #region 页面配置
+export const PAGE_CONFIG = {
+  // 评价列表分页
+  REVIEWS_PAGE_SIZE: 10,
+
+  // 轮播自动播放间隔（毫秒）
+  SWIPER_AUTO_INTERVAL: 3000,
+
+  // 加载更多触发距离
+  LOAD_MORE_THRESHOLD: 100,
 };
+// #endregion
 
-// 筛选选项
-export const FILTER_OPTIONS = {
-  SORT_BY: {
-    SMART: { id: 'smart', label: '智能排序' },
-    PRICE: { id: 'price', label: '价格最低' },
-    RATING: { id: 'rating', label: '评分最高' },
-    DISTANCE: { id: 'distance', label: '距离最近' },
-  },
-  
-  GENDER: {
-    ALL: { id: 'all', label: '不限' },
-    MALE: { id: 'male', label: '仅男性' },
-    FEMALE: { id: 'female', label: '仅女性' },
-  },
-};
+// #region 路由配置
+export const ROUTES = {
+  // 用户相关
+  USER_PROFILE: '/profile',
 
-// 游戏服务标签
-export const GAME_SERVICE_TAGS: Record<string, Array<{ id: string; name: string }>> = {
-  honor_of_kings: [
-    { id: 'master', name: '荣誉主者' },
-    { id: 'rank_up', name: '荣耀上分' },
-    { id: 'esports', name: '电竞陪练师' },
-    { id: 'casual', name: '随玩' },
-  ],
-  league_of_legends: [
-    { id: 'rank_up', name: '上分' },
-    { id: 'companion', name: '陪玩' },
-    { id: 'coaching', name: '教学' },
-  ],
-  pubg_mobile: [
-    { id: 'rank_up', name: '上分' },
-    { id: 'companion', name: '陪玩' },
-    { id: 'coaching', name: '技术指导' },
-  ],
-  brawl_stars: [
-    { id: 'companion', name: '陪玩' },
-    { id: 'coaching', name: '技术指导' },
-  ],
-};
+  // 评价相关
+  REVIEW_LIST: '/service/reviews',
 
-// 生活服务标签
-export const LIFESTYLE_SERVICE_TAGS: Record<string, Array<{ id: string; name: string }>> = {
-  explore_shop: [
-    { id: 'food', name: '美食探店' },
-    { id: 'shopping', name: '购物陪同' },
-  ],
-  private_cinema: [
-    { id: 'watch', name: '观影陪伴' },
-    { id: 'explain', name: '电影解说' },
-  ],
-  billiards: [
-    { id: 'teach', name: '技术指导' },
-    { id: 'practice', name: '陪练对战' },
-  ],
-  ktv: [
-    { id: 'sing', name: 'K歌陪同' },
-    { id: 'vocal', name: '声乐指导' },
-  ],
-  drinking: [
-    { id: 'gather', name: '酒友聚会' },
-    { id: 'tasting', name: '品酒体验' },
-  ],
-  massage: [
-    { id: 'massage', name: '按摩服务' },
-    { id: 'health', name: '健康咨询' },
-  ]
-};
-
-// 功能ID到服务类型的映射
-export const FUNCTION_ID_TO_SERVICE_TYPE: Record<string, ServiceType> = {
-  '1': 'honor_of_kings',      // 王者荣耀
-  '2': 'league_of_legends',   // 英雄联盟
-  '3': 'pubg_mobile',         // 和平精英
-  '4': 'brawl_stars',         // 荒野乱斗
-  '5': 'explore_shop',        // 探店
-  '6': 'private_cinema',      // 私影
-  '7': 'billiards',           // 台球
-  '8': 'ktv',                 // K歌
-  '9': 'drinking',            // 喝酒
-  '10': 'massage',            // 按摩
-  
-  // 也支持直接使用服务类型名称
-  'honor_of_kings': 'honor_of_kings',
-  'league_of_legends': 'league_of_legends',
-  'pubg_mobile': 'pubg_mobile',
-  'brawl_stars': 'brawl_stars',
-  'explore_shop': 'explore_shop',
-  'private_cinema': 'private_cinema',
-  'billiards': 'billiards',
-  'ktv': 'ktv',
-  'drinking': 'drinking',
-  'massage': 'massage',
-};
-
-// 路由常量
-export const SERVICE_DETAIL_ROUTES = {
-  USER_DETAIL: '/modal/user-detail',
-  SKILL_DETAIL: '/skill',
-  FILTER_ONLINE: '/(tabs)/homepage/filter-online',
-  FILTER_OFFLINE: '/(tabs)/homepage/filter-offline',
-  SEARCH: '/(tabs)/homepage/search',
-  BOOKING: '/booking',
+  // 私信
   CHAT: '/messages/chat',
-} as const;
+
+  // 下单
+  ORDER_CREATE: '/order/create',
+
+  // 登录
+  LOGIN: '/auth/login',
+
+  // 图片预览
+  IMAGE_PREVIEW: '/image-preview',
+};
+// #endregion
+
+// #region 文案配置
+export const TEXT = {
+  // 导航栏
+  NAV_TITLE: '详情',
+
+  // 评价区
+  REVIEW_TITLE: '评价',
+  REVIEW_GOOD_RATE: '好评率',
+  REVIEW_VIEW_ALL: '查看全部 >',
+  REVIEW_EMPTY: '暂无评价',
+  REVIEW_NO_MORE: '没有更多评价了',
+
+  // 底部操作栏
+  BTN_MESSAGE: '📧 私信',
+  BTN_ORDER: '😊 下单',
+
+  // 功能开发中提示
+  FEATURE_DEVELOPING: '功能开发中',
+
+  // 加载状态
+  LOADING: '加载中...',
+  ERROR_RETRY: '重试',
+
+  // 活动信息图标
+  ICON_TIME: '🕐',
+  ICON_LOCATION: '📍',
+  ICON_PRICE: '💰',
+};
+// #endregion
+
+// #region 样式预设
+export const SHADOWS = {
+  // 卡片阴影
+  CARD: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+
+  // 按钮阴影
+  BUTTON: {
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+};
+// #endregion

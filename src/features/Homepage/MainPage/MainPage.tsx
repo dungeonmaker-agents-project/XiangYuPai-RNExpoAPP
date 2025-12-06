@@ -169,22 +169,39 @@ const useMainPageLogic = (props: MainPageProps) => {
   }, [router]);
 
   /**
-   * 游戏横幅点击
+   * 游戏横幅点击 - 跳转到王者荣耀陪玩列表页
    */
   const handleGameBannerPress = useCallback(() => {
+    console.log('[MainPage] 🧭 导航: 首页横幅 → 王者荣耀列表页');
     router.push({
-      pathname: '/(tabs)/homepage/service-detail',
-      params: { serviceType: 'game' },
+      pathname: '/(tabs)/homepage/game-player-list',
+      params: { skillType: '王者荣耀' },
     });
   }, [router]);
 
   /**
-   * 功能点击处理
+   * 功能点击处理 - 跳转到对应技能列表页
    */
   const handleFunctionPress = useCallback((functionId: string) => {
+    // 功能ID到skillType的映射
+    const skillTypeMap: Record<string, string> = {
+      '1': '王者荣耀',
+      '2': '英雄联盟',
+      '3': '和平精英',
+      '4': '荒野乱斗',
+      '5': '探店',
+      '6': '私影',
+      '7': '台球',
+      '8': 'K歌',
+      '9': '喝酒',
+      '10': '按摩',
+    };
+    const skillType = skillTypeMap[functionId] || '王者荣耀';
+
+    console.log('[MainPage] 🧭 导航: 首页功能 → 技能列表页', { functionId, skillType });
     router.push({
-      pathname: '/(tabs)/homepage/service-detail',
-      params: { serviceType: functionId },
+      pathname: '/(tabs)/homepage/game-player-list',
+      params: { skillType },
     });
   }, [router]);
 

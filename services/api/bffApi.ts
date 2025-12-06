@@ -1341,9 +1341,11 @@ export interface ServiceStatsInfo {
 
 /**
  * 服务列表项
+ * @mapping skills + users 联合查询结果
  */
 export interface ServiceListItem {
-  serviceId: number;
+  /** 技能ID (skills.skill_id) */
+  skillId: number;
   provider: ServiceProvider;
   skillInfo: ServiceSkillInfo;
   price: ServicePriceInfo;
@@ -1457,9 +1459,11 @@ export interface ServiceReviewsInfo {
 
 /**
  * 服务详情响应
+ * @mapping skills + users 联合查询结果
  */
 export interface ServiceDetailResponse {
-  serviceId: number;
+  /** 技能ID (skills.skill_id) */
+  skillId: number;
   provider: ServiceProvider;
   skillInfo: ServiceSkillInfo;
   price: ServicePriceInfo;
@@ -2272,7 +2276,7 @@ export class BffAPI {
       const url = `${API_ENDPOINTS.BFF.SERVICE_DETAIL}?${queryParams}`;
       const response = await apiClient.get<ServiceDetailResponse>(url);
 
-      log('getServiceDetail success', { serviceId: response.data?.serviceId });
+      log('getServiceDetail success', { skillId: response.data?.skillId });
       return response.data || null;
     } catch (error: any) {
       logError('getServiceDetail failed:', error.message);
@@ -2408,7 +2412,7 @@ export class BffAPI {
     const list: ServiceListItem[] = Array.from({ length: pageSize }, (_, i) => {
       const index = startIndex + i;
       return {
-        serviceId: 1000 + index,
+        skillId: 1000 + index,
         provider: {
           userId: 10000 + index,
           nickname: `${skillType}陪玩${100 + index}号`,
@@ -2480,14 +2484,14 @@ export class BffAPI {
   /**
    * 生成Mock服务详情
    */
-  private generateMockServiceDetail(serviceId: number): ServiceDetailResponse {
+  private generateMockServiceDetail(skillId: number): ServiceDetailResponse {
     return {
-      serviceId,
+      skillId,
       provider: {
-        userId: 10000 + serviceId,
-        nickname: `王者荣耀陪玩${serviceId}号`,
-        avatar: `https://picsum.photos/100/100?random=detail${serviceId}`,
-        gender: serviceId % 2 === 0 ? 'female' : 'male',
+        userId: 10000 + skillId,
+        nickname: `王者荣耀陪玩${skillId}号`,
+        avatar: `https://picsum.photos/100/100?random=detail${skillId}`,
+        gender: skillId % 2 === 0 ? 'female' : 'male',
         age: 22,
         isOnline: true,
         isVerified: true,
