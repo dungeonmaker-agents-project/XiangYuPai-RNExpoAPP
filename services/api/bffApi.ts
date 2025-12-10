@@ -1293,6 +1293,29 @@ export interface ServiceListParams {
   sortBy?: ServiceSortBy;
   /** 性别筛选 */
   gender?: 'all' | 'male' | 'female';
+  /** 高级筛选条件 */
+  filters?: {
+    /** 在线状态 */
+    status?: string;
+    /** 游戏大区 */
+    gameArea?: string;
+    /** 段位筛选 */
+    rank?: string[];
+    /** 价格区间 */
+    priceRange?: string[];
+    /** 位置/英雄 */
+    position?: string[];
+    /** 标签筛选 */
+    tags?: string[];
+    /** 位置筛选 */
+    location?: string;
+    /** 城市代码 */
+    cityCode?: string;
+  };
+  /** 用户纬度（用于距离计算） */
+  latitude?: number;
+  /** 用户经度（用于距离计算） */
+  longitude?: number;
 }
 
 /**
@@ -1398,6 +1421,42 @@ export interface ServiceListResponse {
   total: number;
   /** 是否有更多 */
   hasMore: boolean;
+}
+
+/**
+ * 服务订单创建参数
+ */
+export interface ServiceOrderParams {
+  /** 服务/技能ID */
+  serviceId: number;
+  /** 服务类型 */
+  serviceType?: string;
+  /** 数量（场次） */
+  quantity: number;
+  /** 备注 */
+  remark?: string;
+}
+
+/**
+ * 服务订单创建结果
+ */
+export interface ServiceOrderResult {
+  /** 是否成功 */
+  success: boolean;
+  /** 订单ID */
+  orderId?: number;
+  /** 订单编号 */
+  orderNo?: string;
+  /** 总金额 */
+  totalAmount?: number;
+  /** 订单状态 */
+  status?: string;
+  /** 支付状态 */
+  paymentStatus?: string;
+  /** 错误消息 */
+  message?: string;
+  /** 支付跳转URL */
+  paymentUrl?: string;
 }
 
 // ==================== 服务详情相关类型定义 ====================
@@ -2231,8 +2290,8 @@ export class BffAPI {
    * });
    */
   async getServiceList(params: ServiceListParams): Promise<ServiceListResponse> {
-    const { skillType, pageNum = 1, pageSize = 10, tabType, sortBy, gender } = params;
-    log('getServiceList', { skillType, pageNum, pageSize, tabType, sortBy, gender });
+    const { skillType, pageNum = 1, pageSize = 10, tabType, sortBy, gender, filters, latitude, longitude } = params;
+    log('getServiceList', { skillType, pageNum, pageSize, tabType, sortBy, gender, filters, latitude, longitude });
 
     if (USE_MOCK_DATA) {
       await new Promise(resolve => setTimeout(resolve, 400));
@@ -2240,7 +2299,18 @@ export class BffAPI {
     }
 
     try {
-      const queryParams = buildQueryParams({ skillType, pageNum, pageSize, tabType, sortBy, gender });
+      // Build base query params
+      const queryParams = buildQueryParams({ skillType, pageNum, pageSize, tabType, sortBy, gender, latitude, longitude });
+
+      // If filters exist, use POST with JSON body for complex filters
+      if (filters && Object.keys(filters).some(k => (filters as any)[k] != null)) {
+        const url = `${API_ENDPOINTS.BFF.SERVICE_LIST}?${queryParams}`;
+        const response = await apiClient.post<ServiceListResponse>(url, { filters });
+        log('getServiceList (POST) success', { count: response.data?.list?.length || 0 });
+        return response.data || this.generateEmptyServiceListResponse(skillType);
+      }
+
+      // Otherwise use GET
       const url = `${API_ENDPOINTS.BFF.SERVICE_LIST}?${queryParams}`;
       const response = await apiClient.get<ServiceListResponse>(url);
 
@@ -2318,6 +2388,52 @@ export class BffAPI {
     } catch (error: any) {
       logError('getServiceReviews failed:', error.message);
       return { list: [], total: 0, hasNext: false };
+    }
+  }
+
+  /**
+   * 创建服务订单
+   * 接口: POST /xypai-app-bff/api/service/order
+   *
+   * @param params - 订单参数
+   * @returns 订单创建结果
+   *
+   * @example
+   * const result = await bffApi.createServiceOrder({
+   *   serviceId: 1001,
+   *   quantity: 2,
+   *   remark: '王者上分'
+   * });
+   */
+  async createServiceOrder(params: ServiceOrderParams): Promise<ServiceOrderResult> {
+    const { serviceId, serviceType, quantity, remark } = params;
+    log('createServiceOrder', { serviceId, serviceType, quantity, remark });
+
+    if (USE_MOCK_DATA) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return {
+        success: true,
+        orderId: Math.floor(Math.random() * 100000),
+        orderNo: `ORD${Date.now()}`,
+        totalAmount: 100,
+        status: 'pending',
+        paymentStatus: 'pending',
+        message: 'Order created',
+        paymentUrl: '/order/detail/mock'
+      };
+    }
+
+    try {
+      const response = await apiClient.post<ServiceOrderResult>(
+        `${API_ENDPOINTS.BFF.SERVICE_LIST.replace('/list', '/order')}`,
+        { serviceId, serviceType, quantity, remark }
+      );
+
+      log('createServiceOrder success', { orderId: response.data?.orderId });
+      return response.data || { success: false, message: 'Order creation failed' };
+    } catch (error: any) {
+      logError('createServiceOrder failed:', error.message);
+      return { success: false, message: error.message || 'Order creation failed' };
     }
   }
 

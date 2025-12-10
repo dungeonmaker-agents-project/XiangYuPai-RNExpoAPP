@@ -1,19 +1,20 @@
 /**
- * Service List Screen - 服务列表页路由适配器
- * 支持所有技能类型：王者荣耀、英雄联盟、和平精英等
+ * Game Skill List Screen - Route adapter for skill service list page
+ * Supports all skill types: Honor of Kings, League of Legends, PUBG Mobile, etc.
+ *
+ * Route: /homepage/game-player-list?skillType=王者荣耀&gameId=honor_of_kings
+ * Params:
+ *   - skillType: Display name (王者荣耀, 英雄联盟, etc.)
+ *   - gameId: Internal identifier (honor_of_kings, lol, pubg, etc.)
  */
-
 import { ErrorBoundary } from '@/src/components';
-import GamePlayerListPage from '@/src/features/Homepage/ServiceFlow/GamePlayerListPage';
-import { useLocalSearchParams } from 'expo-router';
+import { GameSkillList } from '@/src/features/GameSkill';
 import React from 'react';
 
-export default function ServiceListScreen() {
-  const { skillType } = useLocalSearchParams<{ skillType: string }>();
-
+export default function GameSkillListScreen() {
   return (
     <ErrorBoundary>
-      <GamePlayerListPage skillType={skillType} />
+      <GameSkillList />
     </ErrorBoundary>
   );
 }

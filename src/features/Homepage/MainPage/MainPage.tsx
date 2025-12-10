@@ -175,7 +175,7 @@ const useMainPageLogic = (props: MainPageProps) => {
     console.log('[MainPage] 🧭 导航: 首页横幅 → 王者荣耀列表页');
     router.push({
       pathname: '/(tabs)/homepage/game-player-list',
-      params: { skillType: '王者荣耀' },
+      params: { skillType: '王者荣耀', gameId: 'honor_of_kings' },
     });
   }, [router]);
 
@@ -183,25 +183,25 @@ const useMainPageLogic = (props: MainPageProps) => {
    * 功能点击处理 - 跳转到对应技能列表页
    */
   const handleFunctionPress = useCallback((functionId: string) => {
-    // 功能ID到skillType的映射
-    const skillTypeMap: Record<string, string> = {
-      '1': '王者荣耀',
-      '2': '英雄联盟',
-      '3': '和平精英',
-      '4': '荒野乱斗',
-      '5': '探店',
-      '6': '私影',
-      '7': '台球',
-      '8': 'K歌',
-      '9': '喝酒',
-      '10': '按摩',
+    // 功能ID映射配置: { skillType: 显示名称, gameId: API参数 }
+    const skillConfigMap: Record<string, { skillType: string; gameId: string }> = {
+      '1': { skillType: '王者荣耀', gameId: 'honor_of_kings' },
+      '2': { skillType: '英雄联盟', gameId: 'lol' },
+      '3': { skillType: '和平精英', gameId: 'pubg' },
+      '4': { skillType: '荒野乱斗', gameId: 'brawl_stars' },
+      '5': { skillType: '探店', gameId: 'explore_store' },
+      '6': { skillType: '私影', gameId: 'private_photo' },
+      '7': { skillType: '台球', gameId: 'billiards' },
+      '8': { skillType: 'K歌', gameId: 'karaoke' },
+      '9': { skillType: '喝酒', gameId: 'drinking' },
+      '10': { skillType: '按摩', gameId: 'massage' },
     };
-    const skillType = skillTypeMap[functionId] || '王者荣耀';
+    const config = skillConfigMap[functionId] || { skillType: '王者荣耀', gameId: 'honor_of_kings' };
 
-    console.log('[MainPage] 🧭 导航: 首页功能 → 技能列表页', { functionId, skillType });
+    console.log('[MainPage] 🧭 导航: 首页功能 → 技能列表页', { functionId, skillType: config.skillType, gameId: config.gameId });
     router.push({
       pathname: '/(tabs)/homepage/game-player-list',
-      params: { skillType },
+      params: { skillType: config.skillType, gameId: config.gameId },
     });
   }, [router]);
 
